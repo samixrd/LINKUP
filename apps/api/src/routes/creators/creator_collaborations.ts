@@ -7,7 +7,9 @@ import {
   getCollaboration,
   getCreatorProfile,
   listCollaborationsForCreator,
+  listFollowUpsForCollaboration,
   recordCollaborationOutcome,
+  scheduleFollowUp,
   submitCounterProposal,
   updateCollaborationProposal,
   updateCollaborationStatus,
@@ -238,6 +240,16 @@ export function registerCreatorCollaborationRoutes(router: ExpressRouter, db: Da
             // idempotent, ignore
           }
         }
+        // Autonomous layer: acceptance schedules the Mind's own follow-up
+        // (default due in 3 days). Idempotent per collaboration via the
+        // deterministic check below.
+        if (updated.status === 'accepted' && !hasFollowUp(db, collaborationId)) {
+          try {
+            scheduleFollowUp(db, collaborationId)
+          } catch {
+            // scheduling is best-effort; never block the PATCH
+          }
+        }
       }
       res.json(updated)
     } catch (err) {
@@ -349,4 +361,9 @@ export function registerCreatorCollaborationRoutes(router: ExpressRouter, db: Da
     }
   })
 
+}
+
+/** True when the collaboration already has at least one follow-up (any status). */
+function hasFollowUp(db: Database.Database, collaborationId: string): boolean {
+  return listFollowUpsForCollaboration(db, collaborationId).total > 0
 }

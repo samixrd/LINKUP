@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import { getCollaboration } from './collaborations.js'
 
@@ -235,6 +236,24 @@ export function listFollowUpsForCollaboration(
 }
 
 /**
+ * Lists pending follow-ups that are due (due_at <= now), ordered by due_at
+ * then id for a stable processing order. This is the queue the autonomous
+ * follow-up worker drains each tick.
+ */
+export function listDueFollowUps(db: Database.Database, now: Date = new Date()): FollowUp[] {
+  const iso = now.toISOString()
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS}
+       FROM follow_ups
+       WHERE status = 'pending' AND due_at <= ?
+       ORDER BY due_at ASC, id ASC`,
+    )
+    .all(iso) as FollowUpRow[]
+  return rows.map(toFollowUp)
+}
+
+/**
  * Transitions the follow-up's status. Throws an `Error` when the follow-up
  * does not exist, when the new status is not valid, or when the transition
  * is not allowed.
@@ -278,4 +297,23 @@ export function incrementFollowUpAttempts(
   }
   db.prepare('UPDATE follow_ups SET attempts = attempts + 1 WHERE id = @id').run({ id })
   return getFollowUp(db, id) as FollowUp
+}
+
+/**
+ * Convenience wrapper for the autonomous layer: schedules the standard
+ * post-acceptance follow-up due `delayMs` from `now` (default 3 days).
+ * Generates its own UUID id. Throws under the same conditions as
+ * createFollowUp.
+ */
+export function scheduleFollowUp(
+  db: Database.Database,
+  collaborationId: string,
+  delayMs = 3 * 24 * 60 * 60 * 1000,
+  now: Date = new Date(),
+): FollowUp {
+  return createFollowUp(db, {
+    id: randomUUID(),
+    collaborationId,
+    dueAt: new Date(now.getTime() + delayMs).toISOString(),
+  })
 }

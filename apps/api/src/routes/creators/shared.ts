@@ -1,6 +1,5 @@
-import type { Response } from 'express'
 import { COLLABORATION_STATUSES, MEMORY_CATEGORIES } from '@linkup/db'
-import type { CollaborationStatus, MemoryCategory } from '@linkup/db'
+import type { Response } from 'express'
 
 /** Upper bound on a memory content payload, in characters (abuse hardening). */
 export const MAX_MEMORY_CONTENT_LENGTH = 10_000
@@ -27,6 +26,8 @@ export function isSqliteConstraintError(err: unknown): boolean {
   const code = (err as Error & { code?: unknown }).code
   return typeof code === 'string' && code.startsWith('SQLITE_CONSTRAINT')
 }
+
+import type { CollaborationStatus, MemoryCategory } from '@linkup/db'
 
 /** Maps Mind collaboration service errors to appropriate HTTP status codes. */
 export function respondWithMindCollaborationError(res: Response, err: unknown, fallback: string): void {
@@ -59,7 +60,6 @@ export function respondWithMindCollaborationError(res: Response, err: unknown, f
     res.status(503).json({ error: message })
     return
   }
-  // Unexpected adapter failure — do not leak internals
   res.status(500).json({ error: fallback })
 }
 
@@ -112,4 +112,3 @@ export function respondWithMindDecisionError(res: Response, err: unknown, fallba
   }
   res.status(500).json({ error: fallback })
 }
-

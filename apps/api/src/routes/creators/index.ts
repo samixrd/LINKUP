@@ -6,6 +6,7 @@ import { registerCreatorProfileRoutes } from './creator_profiles.js'
 import { registerCreatorMindRoutes } from './creator_mind.js'
 import { registerCreatorMemoryRoutes } from './creator_memories.js'
 import { registerCreatorCollaborationRoutes } from './creator_collaborations.js'
+import { registerCreatorGrowthRoutes } from './growth_routes.js'
 
 /**
  * HTTP layer for creator profiles and their memories. Composes the focused
@@ -24,5 +25,6 @@ export function createCreatorsRouter(
   registerCreatorMindRoutes(router, db, mindAdapter)
   registerCreatorMemoryRoutes(router, db)
   registerCreatorCollaborationRoutes(router, db)
+  registerCreatorGrowthRoutes(router, db)
   return router
 }

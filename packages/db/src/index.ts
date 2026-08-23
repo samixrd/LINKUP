@@ -67,8 +67,10 @@ export type {
 export {
   FOLLOW_UP_STATUSES,
   createFollowUp,
+  scheduleFollowUp,
   getFollowUp,
   listFollowUpsForCollaboration,
+  listDueFollowUps,
   updateFollowUpStatus,
   incrementFollowUpAttempts,
   isValidFollowUpStatusTransition,
@@ -85,6 +87,14 @@ export {
   collaborationOutcomeMemoryId,
   collaborationOutcomeContent,
 } from './outcomes.js'
+export {
+  recordGrowthOutcome,
+  listGrowthOutcomesForCollaboration,
+  growthSummaryForCreator,
+  growthOutcomeMemoryId,
+  growthOutcomeContent,
+} from './growth.js'
+export type { GrowthOutcome, NewGrowthOutcome, GrowthDelta } from './growth.js'
 export { buildMindContext, stubMindAdapter } from './mind.js'
 export type { MindContext, MindAdapter, MindMemorySearch, MindContextOptions } from './mind.js'
 export {
