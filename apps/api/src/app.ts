@@ -7,6 +7,8 @@ import { createCollaborationsRouter } from './routes/collaborations.js'
 import { createHealthRouter } from './routes/health.js'
 import { createCreatorsRouter } from './routes/creators/index.js'
 import { createRateLimiter } from './rate_limit.js'
+import { createAuthRouter } from './routes/auth.js'
+import { registerMindIntroRoute } from './routes/mind_intro.js'
 import type { MindAdapter } from '@linkup/db'
 import { stubMindAdapter } from '@linkup/db'
 
@@ -24,11 +26,14 @@ export function createApp({ db, mindAdapter = stubMindAdapter }: AppOptions): ex
   app.use(express.json({ limit: '100kb' }))
 
   app.use('/api/health', createHealthRouter(db))
+  app.use('/api/auth', createAuthRouter(db))
   // Mind endpoints hit the external paid Minds provider — rate limit them
   // per creator (30 requests / minute) before they reach any handler.
   const mindRateLimiter = createRateLimiter({ max: 30, windowMs: 60_000 })
   app.use('/api/creators/:creatorId/mind', mindRateLimiter)
-  app.use('/api/creators', createCreatorsRouter(db, mindAdapter))
+  const creatorsRouter = createCreatorsRouter(db, mindAdapter)
+  registerMindIntroRoute(creatorsRouter, db)
+  app.use('/api/creators', creatorsRouter)
   app.use('/api/collaborations', createCollaborationsRouter(db))
 
   if (existsSync(join(webDistDirectory, 'index.html'))) {

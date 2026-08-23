@@ -75,6 +75,14 @@ export function getProfile(creatorId: string): Promise<CreatorProfile> {
   return request(`/api/creators/${encodeURIComponent(creatorId)}`)
 }
 
+/** Compatibility matches for a creator (ranked, with shared terms). */
+export function getMatches(creatorId: string): Promise<{
+  matches: Array<{ creator: CreatorProfile; score: number; weightedScore?: number; sharedTerms: string[] }>
+  total: number
+}> {
+  return request(`/api/creators/${encodeURIComponent(creatorId)}/matches`)
+}
+
 /** Creates a creator profile and returns it. */
 export function createProfile(input: {
   creatorId: string
@@ -87,6 +95,57 @@ export function createProfile(input: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
+}
+
+// --- Passcode auth -----------------------------------------------------
+
+export interface AuthMe {
+  handle: string
+  creatorId: string
+  profile: CreatorProfile | null
+}
+
+async function authRequest(path: string, input: unknown): Promise<Response> {
+  return fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+/** Registers handle + pin + profile + onboarding memories; sets the session cookie. */
+export async function registerAccount(input: {
+  handle: string
+  pin: string
+  displayName: string
+  bio?: string
+  memories?: Array<{ category: 'goal' | 'preference'; content: string }>
+}): Promise<AuthMe & { seededMemories: number }> {
+  const res = await authRequest('/api/auth/register', input)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `Registration failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function loginAccount(handle: string, pin: string): Promise<AuthMe> {
+  const res = await authRequest('/api/auth/login', { handle, pin })
+  if (!res.ok) {
+    throw new Error('Wrong handle or PIN')
+  }
+  return res.json()
+}
+
+export async function logoutAccount(): Promise<void> {
+  await authRequest('/api/auth/logout', {})
+}
+
+export async function fetchMe(): Promise<AuthMe | null> {
+  const res = await fetch('/api/auth/me')
+  if (res.status === 401) return null
+  if (!res.ok) return null
+  return res.json()
 }
 
 /** Lists a creator's memories. */

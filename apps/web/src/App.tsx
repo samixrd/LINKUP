@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
-import { ApiError, createProfile, getProfile } from './api'
+import { fetchMe, logoutAccount } from './api'
 import type { CreatorProfile } from './api'
-import {
-  clearStoredCreatorId,
-  getStoredCreatorId,
-  newCreatorId,
-  storeCreatorId,
-} from './creator'
+import { clearStoredCreatorId, getStoredCreatorId, storeCreatorId } from './creator'
+import Onboarding from './components/Onboarding'
 import Shell from './components/Shell'
-import { HandArrow, QrSticker, SmileySticker, StarSticker } from './components/Stickers'
+import { QrSticker, SmileySticker, StarSticker } from './components/Stickers'
 import MindPage from './pages/MindPage'
 
 type View =
@@ -55,54 +50,61 @@ function HeroWordmark() {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>(() =>
-    getStoredCreatorId() === null ? { name: 'onboarding' } : { name: 'loading' },
-  )
-  const [displayName, setDisplayName] = useState('')
-  const [bio, setBio] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  // Session-first: the cookie decides. The old localStorage creator id is
+  // still honored as a migration path for existing users.
+  const [view, setView] = useState<View>({ name: 'loading' })
 
   useEffect(() => {
     if (isMindRoute()) return
-    const creatorId = getStoredCreatorId()
-    if (creatorId === null) return
-    getProfile(creatorId)
-      .then((profile) => setView({ name: 'ready', profile }))
-      .catch(() => {
-        // The stored identity no longer exists server-side; let the user set
-        // up again instead of leaving them stuck on a broken profile.
+    let cancelled = false
+    async function boot() {
+      try {
+        const me = await fetchMe()
+        if (!cancelled && me?.profile) {
+          storeCreatorId(me.creatorId)
+          setView({ name: 'ready', profile: me.profile })
+          return
+        }
+      } catch {
+        // fall through to legacy/localStorage check
+      }
+      const legacy = getStoredCreatorId()
+      if (!cancelled) setView(legacy === null ? { name: 'onboarding' } : { name: 'loading' })
+      if (legacy !== null) {
+        // No valid session but a legacy local creator — send to onboarding's
+        // sign-in card by clearing stale identity.
         clearStoredCreatorId()
-        setView({ name: 'onboarding' })
-      })
+      }
+    }
+    void boot()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   if (isMindRoute()) {
     return <MindPage />
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (submitting) return
-    setSubmitting(true)
-    setError('')
-    try {
-      const profile = await createProfile({
-        creatorId: newCreatorId(),
-        displayName: displayName.trim(),
-        ...(bio.trim() !== '' ? { bio: bio.trim() } : {}),
-      })
-      storeCreatorId(profile.creatorId)
-      setView({ name: 'ready', profile })
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Could not reach the LINKUP API. Please try again.',
-      )
-    } finally {
-      setSubmitting(false)
-    }
+  function handleOnboarded(result: { creatorId: string; displayName: string }) {
+    storeCreatorId(result.creatorId)
+    setView({
+      name: 'ready',
+      profile: {
+        creatorId: result.creatorId,
+        displayName: result.displayName,
+        bio: '',
+        avatarUrl: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  }
+
+  async function handleLogout() {
+    await logoutAccount()
+    clearStoredCreatorId()
+    setView({ name: 'onboarding' })
   }
 
   return (
@@ -128,58 +130,7 @@ export default function App() {
             <StarSticker className="sticker sticker--star" />
             <QrSticker className="sticker sticker--qr" />
 
-            {view.name === 'onboarding' && (
-              <>
-                <div className="hand-note" aria-hidden="true">
-                  <span className="hand-note-text">start here</span>
-                  <HandArrow className="hand-note-arrow" />
-                </div>
-                <section className="card" aria-label="Set up your Mind">
-                  <p className="card-kicker">N°002 — Onboarding</p>
-                  <h2 className="card-title">Set up your Mind</h2>
-                  <p className="card-body">
-                    LINKUP keeps a persistent Mind of who you are, what you care about, and how you
-                    like to collaborate.
-                  </p>
-                  <form className="onboarding-form" onSubmit={handleSubmit}>
-                    <label className="field">
-                      <span className="field-label">Display name</span>
-                      <input
-                        className="field-input"
-                        type="text"
-                        value={displayName}
-                        onChange={(event) => setDisplayName(event.target.value)}
-                        placeholder="How should LINKUP know you?"
-                        maxLength={120}
-                        required
-                        autoFocus
-                      />
-                    </label>
-                    <label className="field">
-                      <span className="field-label">
-                        Bio <span className="field-hint">(optional)</span>
-                      </span>
-                      <textarea
-                        className="field-input"
-                        value={bio}
-                        onChange={(event) => setBio(event.target.value)}
-                        placeholder="A line about you and your work."
-                        rows={3}
-                        maxLength={500}
-                      />
-                    </label>
-                    {error !== '' && (
-                      <p className="form-error" role="alert">
-                        {error}
-                      </p>
-                    )}
-                    <button className="btn btn-block" type="submit" disabled={submitting}>
-                      {submitting ? 'Creating your Mind…' : 'Create my Mind →'}
-                    </button>
-                  </form>
-                </section>
-              </>
-            )}
+            {view.name === 'onboarding' && <Onboarding onDone={handleOnboarded} />}
 
             {view.name === 'ready' && (
               <section className="card" aria-label="Your Mind is ready">
@@ -192,6 +143,9 @@ export default function App() {
                 <a className="btn btn-block" href="/mind">
                   Open Mind Chat →
                 </a>
+                <button className="btn btn-ghost btn-block" onClick={handleLogout}>
+                  Sign out
+                </button>
               </section>
             )}
 

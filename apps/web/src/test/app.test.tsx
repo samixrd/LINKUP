@@ -39,35 +39,63 @@ function stubFetch(routes: StubRoute[]): Array<{ url: string; init?: RequestInit
   return calls
 }
 
-function setFieldValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
-  const prototype =
-    element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
-  const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
+function setFieldValue(element: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
   setter?.call(element, value)
   element.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
-function fillAndSubmitForm(displayName: string, bio = ''): void {
-  const nameInput = document.querySelector<HTMLInputElement>('input[type="text"]')
-  if (!nameInput) throw new Error('display name input not found')
-  setFieldValue(nameInput, displayName)
-  const bioInput = document.querySelector<HTMLTextAreaElement>('textarea')
-  if (bioInput) setFieldValue(bioInput, bio)
-  const form = document.querySelector('form')
-  if (!form) throw new Error('form not found')
-  form.requestSubmit()
+function clickButtonWithText(text: string): void {
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')]
+  const target = buttons.find((b) => b.textContent?.includes(text))
+  if (!target) throw new Error(`button not found: ${text}`)
+  target.click()
 }
 
-const profile = (creatorId: string, displayName: string, bio = '') => ({
+async function walkOnboardingToIdentity(): Promise<void> {
+  clickButtonWithText('Start')
+  await act(async () => {})
+  // Step craft
+  clickButtonWithText('Music')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step platforms
+  clickButtonWithText('YouTube')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step audience
+  clickButtonWithText('~1k')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step goal
+  clickButtonWithText('Grow my audience')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step vibe
+  clickButtonWithText('Experimental')
+  await act(async () => {})
+  clickButtonWithText('Last step →')
+  await act(async () => {})
+}
+
+const meBody = (creatorId: string, displayName: string) => ({
+  handle: creatorId.replace(/^u_/, ''),
   creatorId,
-  displayName,
-  bio,
-  avatarUrl: '',
-  createdAt: '2026-08-20T00:00:00.000Z',
-  updatedAt: '2026-08-20T00:00:00.000Z',
+  profile: {
+    creatorId,
+    displayName,
+    bio: '',
+    avatarUrl: '',
+    createdAt: '2026-08-20T00:00:00.000Z',
+    updatedAt: '2026-08-20T00:00:00.000Z',
+  },
 })
 
-describe('onboarding flow', () => {
+describe('auth onboarding flow', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="root"></div>'
     localStorage.clear()
@@ -80,6 +108,7 @@ describe('onboarding flow', () => {
   })
 
   it('renders the LINKUP landing content', async () => {
+    stubFetch([{ method: 'GET', url: '/api/auth/me', status: 401, body: { error: 'not signed in' } }])
     await act(async () => {
       renderApp()
     })
@@ -87,22 +116,23 @@ describe('onboarding flow', () => {
     expect(document.body.textContent).toContain('persistent Mind')
   })
 
-  it('shows the onboarding form when no creator is stored', async () => {
+  it('shows the Mind intro card when no session exists', async () => {
+    stubFetch([{ method: 'GET', url: '/api/auth/me', status: 401, body: { error: 'not signed in' } }])
     await act(async () => {
       renderApp()
     })
-    expect(document.body.textContent).toContain('Set up your Mind')
-    expect(document.querySelector<HTMLInputElement>('input[type="text"]')).not.toBeNull()
-    expect(document.querySelector('textarea')).not.toBeNull()
+    expect(document.body.textContent).toContain('Meet your Mind')
+    expect(document.body.textContent).toContain('Start — it takes 60 seconds')
   })
 
-  it('creates a profile, stores the creator id, and shows the ready state', async () => {
+  it('walks the steps, registers with memories, and shows the ready state', async () => {
     const calls = stubFetch([
+      { method: 'GET', url: '/api/auth/me', status: 401, body: { error: 'not signed in' } },
       {
         method: 'POST',
-        url: '/api/creators',
+        url: '/api/auth/register',
         status: 201,
-        body: profile('creator-1', 'Ada Lovelace', 'First programmer.'),
+        body: { ...meBody('u_ada', 'ada'), seededMemories: 3 },
       },
     ])
 
@@ -110,60 +140,101 @@ describe('onboarding flow', () => {
       renderApp()
     })
     await act(async () => {
-      fillAndSubmitForm('Ada Lovelace', 'First programmer.')
+      await walkOnboardingToIdentity()
+    })
+
+    // Identity step inputs
+    const nameInput = document.querySelector<HTMLInputElement>('input[placeholder^="How should we know"]')
+    if (!nameInput) throw new Error('name input missing')
+    setFieldValue(nameInput, 'Ada Lovelace')
+    const handleInput = document.querySelector<HTMLInputElement>('input[placeholder*="lowercase"]')
+    if (!handleInput) throw new Error('handle input missing')
+    setFieldValue(handleInput, 'ada')
+    const pinInput = document.querySelector<HTMLInputElement>('input[type="password"]')
+    if (!pinInput) throw new Error('pin input missing')
+    setFieldValue(pinInput, '1234')
+
+    await act(async () => {
+      clickButtonWithText('Create my Mind')
     })
     await act(async () => {})
 
     expect(document.body.textContent).toContain('Your Mind is ready')
     expect(document.body.textContent).toContain('Ada Lovelace')
-    expect(localStorage.getItem('linkup.creatorId')).toBe('creator-1')
-    expect(calls).toContainEqual(
-      expect.objectContaining({ url: '/api/creators', init: expect.objectContaining({ method: 'POST' }) }),
-    )
-    const postCall = calls.find((call) => call.init?.method === 'POST')
-    const posted = JSON.parse((postCall?.init?.body as string) ?? '{}') as {
+
+    const registerCall = calls.find((c) => c.url === '/api/auth/register')
+    expect(registerCall).toBeDefined()
+    const posted = JSON.parse((registerCall?.init?.body as string) ?? '{}') as {
+      handle: string
+      pin: string
       displayName: string
-      bio: string
-      creatorId: string
+      memories: Array<{ category: string; content: string }>
     }
+    expect(posted.handle).toBe('ada')
     expect(posted.displayName).toBe('Ada Lovelace')
-    expect(posted.bio).toBe('First programmer.')
-    expect(posted.creatorId).toBeTruthy()
+    // Structured memories were seeded for the Mind
+    expect(posted.memories.length).toBeGreaterThanOrEqual(3)
+    expect(posted.memories.some((m) => m.category === 'goal')).toBe(true)
   })
 
-  it('shows an error and stays on the form when creation fails', async () => {
+  it('signs in an existing account via the login card', async () => {
     stubFetch([
-      {
-        method: 'POST',
-        url: '/api/creators',
-        status: 409,
-        body: { error: 'creator already exists: creator-1' },
-      },
+      { method: 'GET', url: '/api/auth/me', status: 401, body: { error: 'not signed in' } },
+      { method: 'POST', url: '/api/auth/login', status: 200, body: meBody('u_grace', 'grace') },
     ])
 
     await act(async () => {
       renderApp()
     })
     await act(async () => {
-      fillAndSubmitForm('Ada Lovelace')
+      clickButtonWithText('I already have an account')
+    })
+
+    const handleInput = document.querySelector<HTMLInputElement>('input[placeholder="your_handle"]')
+    if (!handleInput) throw new Error('login handle input missing')
+    setFieldValue(handleInput, 'grace')
+    const pinInput = document.querySelector<HTMLInputElement>('input[type="password"]')
+    if (!pinInput) throw new Error('login pin input missing')
+    setFieldValue(pinInput, '1234')
+
+    await act(async () => {
+      clickButtonWithText('Sign in')
     })
     await act(async () => {})
 
-    expect(document.body.textContent).toContain('creator already exists')
-    expect(document.body.textContent).toContain('Set up your Mind')
-    expect(localStorage.getItem('linkup.creatorId')).toBeNull()
+    expect(document.body.textContent).toContain('Your Mind is ready')
   })
 
-  it('shows the stored profile when a creator id is already present', async () => {
-    localStorage.setItem('linkup.creatorId', 'creator-7')
+  it('shows a login error and stays on the card when credentials are wrong', async () => {
     stubFetch([
-      {
-        method: 'GET',
-        url: '/api/creators/creator-7',
-        status: 200,
-        body: profile('creator-7', 'Grace Hopper'),
-      },
+      { method: 'GET', url: '/api/auth/me', status: 401, body: { error: 'not signed in' } },
+      { method: 'POST', url: '/api/auth/login', status: 401, body: { error: 'invalid handle or pin' } },
     ])
+
+    await act(async () => {
+      renderApp()
+    })
+    await act(async () => {
+      clickButtonWithText('I already have an account')
+    })
+    const handleInput = document.querySelector<HTMLInputElement>('input[placeholder="your_handle"]')
+    if (!handleInput) throw new Error('missing input')
+    setFieldValue(handleInput, 'ghost')
+    const pinInput = document.querySelector<HTMLInputElement>('input[type="password"]')
+    if (!pinInput) throw new Error('missing pin')
+    setFieldValue(pinInput, '0000')
+
+    await act(async () => {
+      clickButtonWithText('Sign in')
+    })
+    await act(async () => {})
+
+    expect(document.body.textContent).toContain('Wrong handle or PIN')
+    expect(document.body.textContent).toContain('Welcome back')
+  })
+
+  it('restores the session from the cookie on boot', async () => {
+    stubFetch([{ method: 'GET', url: '/api/auth/me', status: 200, body: meBody('u_hopper', 'Grace Hopper') }])
 
     await act(async () => {
       renderApp()
@@ -172,26 +243,5 @@ describe('onboarding flow', () => {
 
     expect(document.body.textContent).toContain('Your Mind is ready')
     expect(document.body.textContent).toContain('Grace Hopper')
-    expect(document.body.textContent).toContain('creator-7')
-  })
-
-  it('returns to onboarding when the stored profile no longer exists', async () => {
-    localStorage.setItem('linkup.creatorId', 'creator-ghost')
-    stubFetch([
-      {
-        method: 'GET',
-        url: '/api/creators/creator-ghost',
-        status: 404,
-        body: { error: 'creator not found: creator-ghost' },
-      },
-    ])
-
-    await act(async () => {
-      renderApp()
-    })
-    await act(async () => {})
-
-    expect(document.body.textContent).toContain('Set up your Mind')
-    expect(localStorage.getItem('linkup.creatorId')).toBeNull()
   })
 })

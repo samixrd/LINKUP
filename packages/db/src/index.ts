@@ -98,6 +98,15 @@ export type { GrowthOutcome, NewGrowthOutcome, GrowthDelta } from './growth.js'
 export { buildMindContext, stubMindAdapter } from './mind.js'
 export type { MindContext, MindAdapter, MindMemorySearch, MindContextOptions } from './mind.js'
 export {
+  registerAccount,
+  loginWithPin,
+  resolveSession,
+  logoutSession,
+  getAccountProfile,
+  SESSION_TTL_MS,
+} from './auth.js'
+export type { AuthAccount, AuthSession } from './auth.js'
+export {
   MIND_INTERACTION_ROLES,
   createMindInteraction,
   getMindInteraction,

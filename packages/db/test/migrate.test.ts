@@ -16,10 +16,11 @@ describe('database foundation', () => {
       '0008_counter_proposal.sql',
       '0009_collaboration_proposals.sql',
       '0010_growth_outcomes.sql',
+      '0011_accounts.sql',
     ])
 
     const rows = db.prepare('SELECT version FROM schema_migrations').all()
-    expect(rows).toHaveLength(10)
+    expect(rows).toHaveLength(11)
     db.close()
   })
 

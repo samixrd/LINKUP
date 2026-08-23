@@ -111,7 +111,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     expect(openBtn).not.toBeNull()
     await act(async () => {
       openBtn?.click()
@@ -132,7 +134,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -176,7 +180,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -229,7 +235,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -306,7 +314,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -372,7 +382,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -419,7 +431,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -453,7 +467,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -498,7 +514,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -539,7 +557,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -576,7 +596,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -606,7 +628,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })
@@ -625,7 +649,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    const openBtn = document.querySelector<HTMLButtonElement>('.collab-open-btn')
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
     await act(async () => {
       openBtn?.click()
     })

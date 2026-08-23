@@ -6,6 +6,7 @@ import { getStoredCreatorId } from '../creator'
 import Shell from '../components/Shell'
 import CollaborationNegotiationPanel from '../components/CollaborationNegotiationPanel'
 import ProposeCollaborationPanel from '../components/ProposeCollaborationPanel'
+import MatchFeed from '../components/MatchFeed'
 
 type Message = { id?: string; role: 'user' | 'mind'; content: string }
 
@@ -47,6 +48,8 @@ export default function MindPage() {
   const [saveSuccess, setSaveSuccess] = useState('')
   const [memorySearchEnabled, setMemorySearchEnabled] = useState(false)
   const [collabOpen, setCollabOpen] = useState(false)
+  const [pendingMatchId, setPendingMatchId] = useState<string | null>(null)
+  const [feedOpen, setFeedOpen] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -265,6 +268,14 @@ export default function MindPage() {
             <button
               type="button"
               className="btn collab-open-btn"
+              onClick={() => setFeedOpen(true)}
+              aria-label="Find creators"
+            >
+              Find Creators ✦
+            </button>
+            <button
+              type="button"
+              className="btn collab-open-btn"
               onClick={() => setCollabOpen(true)}
               aria-label="Propose collaboration"
             >
@@ -273,11 +284,36 @@ export default function MindPage() {
           </div>
         </header>
 
+        {feedOpen && (
+          <section className="collab-section">
+            <MatchFeed
+              creatorId={creatorId}
+              onCollab={(match) => {
+                // Collab right-swipe: close feed, open proposal panel with
+                // this creator pre-selected as the target.
+                setFeedOpen(false)
+                setPendingMatchId(match.creator.creatorId)
+                setCollabOpen(true)
+              }}
+            />
+          </section>
+        )}
         {collabOpen && (
           <section className="collab-section">
             <ProposeCollaborationPanel
+              key={pendingMatchId ?? 'default'}
               creatorId={creatorId}
-              matches={context.matches.matches}
+              matches={
+                pendingMatchId
+                  ? [...context.matches.matches].sort((a, b) =>
+                      a.creator.creatorId === pendingMatchId
+                        ? -1
+                        : b.creator.creatorId === pendingMatchId
+                          ? 1
+                          : 0,
+                    )
+                  : context.matches.matches
+              }
               onCreated={() => {
                 // Refresh context so header stats reflect the new collaboration
                 getMindContext(creatorId)
