@@ -36,6 +36,30 @@ const VIBES = [
 
 type Phase = 'welcome' | 'craft' | 'platforms' | 'audience' | 'goal' | 'vibe' | 'identity' | 'login'
 
+function Chip({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean
+  children: React.ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button type="button" className={`chip ${active ? 'chip--on' : ''}`} onClick={onClick}>
+      {children}
+    </button>
+  )
+}
+
+function NextButton({ disabled, onClick, label }: { disabled: boolean; onClick: () => void; label: string }) {
+  return (
+    <button className="btn btn-block" disabled={disabled} onClick={onClick}>
+      {label}
+    </button>
+  )
+}
+
 export default function Onboarding({ onDone }: Props) {
   const [phase, setPhase] = useState<Phase>('welcome')
   const [crafts, setCrafts] = useState<string[]>([])
@@ -114,30 +138,7 @@ export default function Onboarding({ onDone }: Props) {
   const stepIndex =
     { welcome: 0, craft: 1, platforms: 2, audience: 3, goal: 4, vibe: 5, identity: 6, login: 6 }[phase]
 
-  function Chip({
-    active,
-    children,
-    onClick,
-  }: {
-    active: boolean
-    children: React.ReactNode
-    onClick: () => void
-  }) {
-    return (
-      <button type="button" className={`chip ${active ? 'chip--on' : ''}`} onClick={onClick}>
-        {children}
-      </button>
-    )
-  }
-
-  function NextButton({ disabled, onClick, label }: { disabled: boolean; onClick: () => void; label: string }) {
-    return (
-      <button className="btn btn-block" disabled={disabled} onClick={onClick}>
-        {label}
-      </button>
-    )
-  }
-
+  
   return (
     <section className="card onboarding" aria-label="Set up your Mind">
       <p className="card-kicker">

@@ -98,6 +98,14 @@ export type { GrowthOutcome, NewGrowthOutcome, GrowthDelta } from './growth.js'
 export { buildMindContext, stubMindAdapter } from './mind.js'
 export type { MindContext, MindAdapter, MindMemorySearch, MindContextOptions } from './mind.js'
 export {
+  setOpenCollab,
+  getOpenCollab,
+  listOpenCollabs,
+  evaluateThreshold,
+  findThresholdMatches,
+} from './open_collabs.js'
+export type { OpenCollab, NewOpenCollab, ThresholdMatch } from './open_collabs.js'
+export {
   registerAccount,
   loginWithPin,
   resolveSession,

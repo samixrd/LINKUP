@@ -9,6 +9,7 @@ import { createCreatorsRouter } from './routes/creators/index.js'
 import { createRateLimiter } from './rate_limit.js'
 import { createAuthRouter } from './routes/auth.js'
 import { registerMindIntroRoute } from './routes/mind_intro.js'
+import { createOpenCollabRouter } from './routes/open_collabs.js'
 import type { MindAdapter } from '@linkup/db'
 import { stubMindAdapter } from '@linkup/db'
 
@@ -31,6 +32,7 @@ export function createApp({ db, mindAdapter = stubMindAdapter }: AppOptions): ex
   // per creator (30 requests / minute) before they reach any handler.
   const mindRateLimiter = createRateLimiter({ max: 30, windowMs: 60_000 })
   app.use('/api/creators/:creatorId/mind', mindRateLimiter)
+  app.use('/api/open-collabs', createOpenCollabRouter(db, mindAdapter))
   const creatorsRouter = createCreatorsRouter(db, mindAdapter)
   registerMindIntroRoute(creatorsRouter, db)
   app.use('/api/creators', creatorsRouter)
