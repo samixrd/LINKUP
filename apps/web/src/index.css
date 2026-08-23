@@ -1512,3 +1512,134 @@ textarea.field-input {
   text-align: center;
   padding: 1.5rem 0;
 }
+
+/* --- Live negotiation viewer --- */
+.neg-live {
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 6px 6px 0 var(--accent);
+  padding: 1.2rem;
+}
+
+.neg-live-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.neg-badge {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.neg-badge.running {
+  background: #fff3cd;
+  color: #7a5b00;
+  border: 1.5px solid #d4b106;
+}
+
+.neg-badge.ready {
+  background: #d9f2dc;
+  color: #14532d;
+  border: 1.5px solid #2e7d43;
+}
+
+.neg-badge.failed {
+  background: #fde2e1;
+  color: #7c1d1a;
+  border: 1.5px solid #c0392b;
+}
+
+.neg-transcript {
+  max-height: 20rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1.5px dashed var(--ink);
+  margin-bottom: 0.9rem;
+}
+
+.neg-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  animation: neg-in 0.35s ease;
+}
+
+@keyframes neg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.neg-speaker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.neg-message {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.neg-thinking {
+  text-align: center;
+  color: var(--muted, #666);
+  font-style: italic;
+  animation: neg-pulse 1.4s ease infinite;
+}
+
+@keyframes neg-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.neg-score {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.neg-plan {
+  border: 2px solid var(--accent);
+  background: rgba(31, 94, 255, 0.04);
+  padding: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.neg-plan-kicker {
+  margin: 0 0 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.neg-plan-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.neg-signed {
+  text-align: center;
+  background: #d9f2dc;
+  border: 1.5px solid #2e7d43;
+  color: #14532d;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+}

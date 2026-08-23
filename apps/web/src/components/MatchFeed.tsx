@@ -18,9 +18,10 @@ export interface MatchCard {
 interface Props {
   creatorId: string
   onCollab: (match: MatchCard) => void
+  onLiveNegotiate?: (match: MatchCard) => void
 }
 
-export default function MatchFeed({ creatorId, onCollab }: Props) {
+export default function MatchFeed({ creatorId, onCollab, onLiveNegotiate }: Props) {
   const [matches, setMatches] = useState<MatchCard[]>([])
   const [index, setIndex] = useState(0)
   const [exitDir, setExitDir] = useState<'left' | 'right' | null>(null)
@@ -129,6 +130,16 @@ export default function MatchFeed({ creatorId, onCollab }: Props) {
           ✦ Collab
         </button>
       </div>
+      {onLiveNegotiate !== undefined && (
+        <button
+          className="btn btn-ghost btn-block"
+          disabled={exitDir !== null}
+          onClick={() => onLiveNegotiate(current)}
+          aria-label={`Watch Minds negotiate live with ${current.creator.displayName}`}
+        >
+          ⚡ Watch Minds negotiate live
+        </button>
+      )}
       <p className="feed-count">
         {index + 1} / {matches.length}
       </p>

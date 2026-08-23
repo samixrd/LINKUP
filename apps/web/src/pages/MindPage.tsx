@@ -7,6 +7,7 @@ import Shell from '../components/Shell'
 import CollaborationNegotiationPanel from '../components/CollaborationNegotiationPanel'
 import ProposeCollaborationPanel from '../components/ProposeCollaborationPanel'
 import MatchFeed from '../components/MatchFeed'
+import NegotiationLive from '../components/NegotiationLive'
 
 type Message = { id?: string; role: 'user' | 'mind'; content: string }
 
@@ -50,6 +51,7 @@ export default function MindPage() {
   const [collabOpen, setCollabOpen] = useState(false)
   const [pendingMatchId, setPendingMatchId] = useState<string | null>(null)
   const [feedOpen, setFeedOpen] = useState(false)
+  const [liveNegotiation, setLiveNegotiation] = useState<{ targetId: string; targetName: string } | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -284,7 +286,21 @@ export default function MindPage() {
           </div>
         </header>
 
-        {feedOpen && (
+        {liveNegotiation !== null && (
+          <section className="collab-section">
+            <NegotiationLive
+              targetId={liveNegotiation.targetId}
+              targetName={liveNegotiation.targetName}
+              onClose={() => {
+                setLiveNegotiation(null)
+                getMindContext(creatorId)
+                  .then((ctx) => setContext(ctx))
+                  .catch(() => {})
+              }}
+            />
+          </section>
+        )}
+        {feedOpen && liveNegotiation === null && (
           <section className="collab-section">
             <MatchFeed
               creatorId={creatorId}
@@ -294,6 +310,10 @@ export default function MindPage() {
                 setFeedOpen(false)
                 setPendingMatchId(match.creator.creatorId)
                 setCollabOpen(true)
+              }}
+              onLiveNegotiate={(match) => {
+                setFeedOpen(false)
+                setLiveNegotiation({ targetId: match.creator.creatorId, targetName: match.creator.displayName })
               }}
             />
           </section>
