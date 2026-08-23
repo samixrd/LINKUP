@@ -5,7 +5,8 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import type Database from 'better-sqlite3'
 import { createCollaborationsRouter } from './routes/collaborations.js'
 import { createHealthRouter } from './routes/health.js'
-import { createCreatorsRouter } from './routes/creators.js'
+import { createCreatorsRouter } from './routes/creators/index.js'
+import { createRateLimiter } from './rate_limit.js'
 import type { MindAdapter } from '@linkup/db'
 import { stubMindAdapter } from '@linkup/db'
 
@@ -23,6 +24,10 @@ export function createApp({ db, mindAdapter = stubMindAdapter }: AppOptions): ex
   app.use(express.json({ limit: '100kb' }))
 
   app.use('/api/health', createHealthRouter(db))
+  // Mind endpoints hit the external paid Minds provider — rate limit them
+  // per creator (30 requests / minute) before they reach any handler.
+  const mindRateLimiter = createRateLimiter({ max: 30, windowMs: 60_000 })
+  app.use('/api/creators/:creatorId/mind', mindRateLimiter)
   app.use('/api/creators', createCreatorsRouter(db, mindAdapter))
   app.use('/api/collaborations', createCollaborationsRouter(db))
 

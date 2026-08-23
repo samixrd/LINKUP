@@ -6,10 +6,16 @@ import type { CreatorProfile } from './profiles.js'
  * A potential collaboration partner and why they were matched. `score` is the
  * number of terms the partner's profile + memories share with the subject
  * creator; `sharedTerms` are those terms, sorted for a stable result.
+ * `weightedScore` refines the raw count: rarer terms count for more
+ * (smoothed inverse document frequency across the candidate pool) and shared
+ * terms coming from high-signal memory categories (preference/goal) weigh
+ * more than generic ones. Ranking uses `weightedScore`; `score` is kept for
+ * explainability and API stability.
  */
 export interface CreatorMatch {
   creator: CreatorProfile
   score: number
+  weightedScore: number
   sharedTerms: string[]
 }
 
@@ -130,11 +136,6 @@ interface ProfileRow {
   updated_at: string
 }
 
-interface MemoryRow {
-  creator_id: string
-  content: string
-}
-
 const PROFILE_COLUMNS = `
   creator_id,
   display_name,
@@ -191,13 +192,58 @@ function sharedTermsBetween(subject: Set<string>, candidate: Set<string>): strin
 }
 
 /**
+ * High-signal memory categories. A shared term sourced from one of these
+ * counts more than one appearing only in bios or generic memories, because
+ * preference/goal statements describe what a creator actively wants.
+ */
+const HIGH_SIGNAL_CATEGORIES = new Set(['preference', 'goal'])
+
+interface WeightedMemory {
+  content: string
+  highSignal: boolean
+}
+
+/**
+ * Computes smoothed IDF weights for the subject's terms across the candidate
+ * pool: `log(1 + N / (1 + df))` where `df` is how many creators' term sets
+ * contain the term. Terms everyone shares trend toward ~0; rare terms toward
+ * `log(1 + N)`. Fully deterministic for a given database state.
+ */
+function idfWeights(subjectTerms: Set<string>, candidateTermSets: Array<Set<string>>): Map<string, number> {
+  const n = candidateTermSets.length
+  const weights = new Map<string, number>()
+  for (const term of subjectTerms) {
+    let df = 0
+    for (const terms of candidateTermSets) {
+      if (terms.has(term)) df += 1
+    }
+    weights.set(term, Math.log(1 + n / (1 + df)))
+  }
+  return weights
+}
+
+/** Rounds to 6 decimal places so equal inputs always compare exactly equal. */
+function round6(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000
+}
+
+/**
  * Ranks every other creator by compatibility with the subject creator.
- * Compatibility is scored as the number of normalized terms the other
- * creator's bio + memories share with the subject's bio + memories; only
- * creators sharing at least one term are returned. Ties are broken by
- * displayName (case-insensitive), then creatorId, for a stable result.
- * Throws an `Error` when the subject creator does not exist or when `limit`
- * or `offset` are not valid.
+ * Compatibility has two layers:
+ *
+ * - `score` — the number of normalized terms the other creator's bio +
+ *   memories share with the subject's bio + memories (kept from v1 for
+ *   explainability and API stability).
+ * - `weightedScore` — the ranking signal: each shared term is weighted by
+ *   smoothed IDF (rare terms matter more than terms everyone shares) and a
+ *   ×1.5 boost when the term also appears in either side's high-signal
+ *   memories (preference/goal). Ranking uses this; only creators sharing at
+ *   least one term are returned. Both scores are rounded, so ties are exact
+ *   and deterministic.
+ *
+ * Ties are broken by displayName (case-insensitive), then creatorId, for a
+ * stable result. Throws an `Error` when the subject creator does not exist or
+ * when `limit` or `offset` are not valid.
  */
 export function findCompatibleCreators(
   db: Database.Database,
@@ -225,38 +271,75 @@ export function findCompatibleCreators(
   // Learning loop: collaboration_outcome memories are included here so
   // terminal collaboration outcomes deterministically influence future
   // compatibility scores via their proposal/status terms.
-  const memories = db
-    .prepare('SELECT creator_id, content FROM creator_memories')
-    .all() as MemoryRow[]
+  const memoryRows = db
+    .prepare('SELECT creator_id, category, content FROM creator_memories')
+    .all() as Array<{ creator_id: string; category: string; content: string }>
 
-  const memoriesByCreator = new Map<string, string[]>()
-  for (const memory of memories) {
+  const memoriesByCreator = new Map<string, WeightedMemory[]>()
+  for (const memory of memoryRows) {
+    const weighted: WeightedMemory = {
+      content: memory.content,
+      highSignal: HIGH_SIGNAL_CATEGORIES.has(memory.category),
+    }
     const existing = memoriesByCreator.get(memory.creator_id)
     if (existing === undefined) {
-      memoriesByCreator.set(memory.creator_id, [memory.content])
+      memoriesByCreator.set(memory.creator_id, [weighted])
     } else {
-      existing.push(memory.content)
+      existing.push(weighted)
     }
   }
 
-  const subjectTerms = termsFor([
-    subject.bio,
-    ...(memoriesByCreator.get(creatorId) ?? []),
-  ])
+  const subjectMemories = memoriesByCreator.get(creatorId) ?? []
+  const subjectTerms = termsFor([subject.bio, ...subjectMemories.map((m) => m.content)])
+  const subjectHighSignalTerms = termsFor(
+    subjectMemories.filter((m) => m.highSignal).map((m) => m.content),
+  )
 
-  const matches: CreatorMatch[] = []
+  const candidateTermSets: Array<Set<string>> = []
   for (const profile of profiles) {
     if (profile.creator_id === creatorId) continue
-    const candidateTerms = termsFor([
-      profile.bio,
-      ...(memoriesByCreator.get(profile.creator_id) ?? []),
-    ])
+    const memories = memoriesByCreator.get(profile.creator_id) ?? []
+    candidateTermSets.push(
+      termsFor([profile.bio, ...memories.map((m) => m.content)]),
+    )
+  }
+  const weights = idfWeights(subjectTerms, candidateTermSets)
+
+  const matches: CreatorMatch[] = []
+  let candidateIndex = 0
+  for (const profile of profiles) {
+    if (profile.creator_id === creatorId) continue
+    const candidateTerms = candidateTermSets[candidateIndex]
+    candidateIndex += 1
+    if (candidateTerms === undefined) continue
+    const memories = memoriesByCreator.get(profile.creator_id) ?? []
+    const candidateHighSignalTerms = termsFor(
+      memories.filter((m) => m.highSignal).map((m) => m.content),
+    )
+
     const shared = sharedTermsBetween(subjectTerms, candidateTerms)
     if (shared.length === 0) continue
-    matches.push({ creator: toProfile(profile), score: shared.length, sharedTerms: shared })
+
+    let weightedScore = 0
+    for (const term of shared) {
+      const weight = weights.get(term) ?? 0
+      const boosted =
+        subjectHighSignalTerms.has(term) || candidateHighSignalTerms.has(term)
+          ? weight * 1.5
+          : weight
+      weightedScore += boosted
+    }
+
+    matches.push({
+      creator: toProfile(profile),
+      score: shared.length,
+      weightedScore: round6(weightedScore),
+      sharedTerms: shared,
+    })
   }
 
   matches.sort((a, b) => {
+    if (a.weightedScore !== b.weightedScore) return b.weightedScore - a.weightedScore
     if (a.score !== b.score) return b.score - a.score
     const nameA = a.creator.displayName.toLowerCase()
     const nameB = b.creator.displayName.toLowerCase()
