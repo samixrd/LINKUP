@@ -1,0 +1,49 @@
+{
+  "name": "linkup",
+  "private": true,
+  "version": "0.1.0",
+  "description": "LINKUP — a creator-focused persistent Mind product. Monorepo foundation.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "predev": "npm run build -w @linkup/db",
+    "dev": "concurrently -n db,api,web -c blue,green,magenta \"npm:dev:db\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:db": "npm run dev -w @linkup/db",
+    "dev:api": "npm run dev -w @linkup/api",
+    "dev:web": "npm run dev -w @linkup/web",
+    "build": "npm run build -w @linkup/db && npm run build -w @linkup/api && npm run build -w @linkup/web",
+    "start": "node apps/api/dist/index.js",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "typecheck": "npm run typecheck --ws --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "@vitejs/plugin-react": "^6.1.0",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "jsdom": "^30.0.1",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true,
+    "esbuild@0.28.2": true
+  }
+}

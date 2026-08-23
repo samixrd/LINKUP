@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+packages/db/data/*.db
+packages/db/data/*.db-shm
+packages/db/data/*.db-wal
