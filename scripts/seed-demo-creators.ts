@@ -18,12 +18,10 @@ interface SeedCreator {
   bio: string
   details: Record<string, unknown>
   memories: string[]
-  /** Open-collab card terms. */
-  openCollab: { myFollowers: number; minPartnerFollowers: number; languages: string[] }
 }
 
 /** Follower numbers matching each seed's audienceSize bucket. */
-const OPEN_CARDS: Record<string, SeedCreator['openCollab']> = {
+const OPEN_CARDS: Record<string, { myFollowers: number; minPartnerFollowers: number; languages: string[] }> = {
   'seed-arif-beats': { myFollowers: 10000, minPartnerFollowers: 0, languages: ['bn', 'en'] },
   'seed-nusrat-cooks': { myFollowers: 150000, minPartnerFollowers: 50000, languages: ['bn'] },
   'seed-devon-tech': { myFollowers: 200000, minPartnerFollowers: 0, languages: ['en'] },
@@ -32,6 +30,10 @@ const OPEN_CARDS: Record<string, SeedCreator['openCollab']> = {
   'seed-priya-streams': { myFollowers: 25000, minPartnerFollowers: 0, languages: ['en', 'hi'] },
   'seed-kwame-comedy': { myFollowers: 40000, minPartnerFollowers: 0, languages: ['en'] },
   'seed-sara-writes': { myFollowers: 3000, minPartnerFollowers: 0, languages: ['en', 'fr'] },
+  'seed-yuki-lens': { myFollowers: 12000, minPartnerFollowers: 0, languages: ['en', 'ja'] },
+  'seed-omar-learn': { myFollowers: 180000, minPartnerFollowers: 20000, languages: ['en', 'ar'] },
+  'seed-lena-pods': { myFollowers: 8000, minPartnerFollowers: 0, languages: ['en', 'de'] },
+  'seed-chloe-games': { myFollowers: 55000, minPartnerFollowers: 1000, languages: ['en', 'ko'] },
 }
 
 const SEEDS: SeedCreator[] = [
@@ -192,6 +194,86 @@ const SEEDS: SeedCreator[] = [
       openToSmall: 'yes',
     },
     memories: ['I narrate short stories — send me your writing and I may feature it.'],
+  },
+  {
+    creatorId: 'seed-yuki-lens',
+    displayName: 'Yuki Lens',
+    bio: 'Street photographer in Tokyo — cinematic photo essays and reels. Barter-friendly.',
+    details: {
+      niches: ['Photography', 'Video'],
+      platforms: ['Instagram', 'YouTube'],
+      audienceSize: '~10k',
+      avgViews: '1k-10k',
+      languages: ['English', 'Japanese'],
+      collabTypes: ['co-create', 'cross-promote'],
+      availability: '~5 hrs/week',
+      location: 'Tokyo',
+      goals: ['Grow my audience', 'Find collab partners'],
+      compensation: ['barter', 'revenue-share'],
+      openToSmall: 'yes',
+      dealbreakers: 'no political content',
+    },
+    memories: ['I love shooting musicians — want to pair my visuals with original music.'],
+  },
+  {
+    creatorId: 'seed-omar-learn',
+    displayName: 'Omar Academy',
+    bio: 'STEM educator making bite-size science explainers. Paid collabs only.',
+    details: {
+      niches: ['Education', 'Video'],
+      platforms: ['YouTube', 'TikTok'],
+      audienceSize: '~100k+',
+      avgViews: '10k-100k',
+      languages: ['English', 'Arabic'],
+      collabTypes: ['guest-appearance', 'series', 'co-create'],
+      availability: '~10+ hrs/week',
+      location: 'Dubai',
+      goals: ['Make money creating', 'Level up my craft'],
+      compensation: ['paid', 'revenue-share'],
+      minBudget: '$300 per sponsored lesson',
+      openToSmall: 'yes',
+      dealbreakers: 'no pseudoscience',
+    },
+    memories: ['I host a weekly science Q&A — always happy to feature expert guests.'],
+  },
+  {
+    creatorId: 'seed-lena-pods',
+    displayName: 'Lena Pods',
+    bio: 'Interview podcast host — culture and creativity. Revenue-share series.',
+    details: {
+      niches: ['Podcast', 'Writing'],
+      platforms: ['Podcast', 'Newsletter'],
+      audienceSize: '~1k',
+      avgViews: '1k-10k',
+      languages: ['English', 'German'],
+      collabTypes: ['guest-appearance', 'series', 'cross-promote'],
+      availability: '~1 hr/week',
+      location: 'Berlin',
+      goals: ['Find collab partners', 'Grow my audience'],
+      compensation: ['revenue-share', 'free'],
+      openToSmall: 'yes',
+    },
+    memories: ['I always need interesting guests — creators with stories make great episodes.'],
+  },
+  {
+    creatorId: 'seed-chloe-games',
+    displayName: 'Chloe Plays',
+    bio: 'Competitive but cozy gaming channel — reviews and co-op streams. Live-event collabs.',
+    details: {
+      niches: ['Gaming'],
+      platforms: ['YouTube', 'Twitch'],
+      audienceSize: '~100k+',
+      avgViews: '10k-100k',
+      languages: ['English', 'Korean'],
+      collabTypes: ['live-event', 'co-create', 'guest-appearance'],
+      availability: 'Full-time',
+      location: 'Seoul',
+      goals: ['Make money creating', 'Find collab partners'],
+      compensation: ['paid', 'revenue-share'],
+      minBudget: '$80 per stream collab',
+      openToSmall: 'yes',
+    },
+    memories: ['I run a monthly co-op challenge — looking for a regular co-host.'],
   },
 ]
 

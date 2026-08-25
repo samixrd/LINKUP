@@ -49,11 +49,10 @@ export default function MindPage() {
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState('')
   const [memorySearchEnabled, setMemorySearchEnabled] = useState(false)
-  const [collabOpen, setCollabOpen] = useState(false)
+  const [section, setSection] = useState<'chat' | 'matches' | 'negotiations' | 'open'>('chat')
+  const [proposeOpen, setProposeOpen] = useState(false)
   const [pendingMatchId, setPendingMatchId] = useState<string | null>(null)
-  const [feedOpen, setFeedOpen] = useState(false)
   const [liveNegotiation, setLiveNegotiation] = useState<{ targetId?: string; targetName?: string } | null>(null)
-  const [goOpen, setGoOpen] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -280,37 +279,42 @@ export default function MindPage() {
             <button
               type="button"
               className="btn collab-open-btn"
-              onClick={() => setFeedOpen(true)}
-              aria-label="Find creators"
-            >
-              Find Creators ✦
-            </button>
-            <button
-              type="button"
-              className="btn collab-open-btn"
-              onClick={() => setCollabOpen(true)}
+              onClick={() => {
+                setSection('negotiations')
+                setProposeOpen(true)
+              }}
               aria-label="Propose collaboration"
             >
               Propose Collaboration ↗
             </button>
-            <button
-              type="button"
-              className="btn collab-open-btn"
-              onClick={() => setGoOpen((v) => !v)}
-              aria-label="Go open for collaborations"
-            >
-              {goOpen ? 'Hide Open Terms ▲' : 'Go Open ⚡'}
-            </button>
           </div>
         </header>
 
-        {goOpen && liveNegotiation === null && (
-          <section className="collab-section">
-            <GoOpenPanel creatorId={creatorId} onClose={() => setGoOpen(false)} />
-          </section>
-        )}
+        <nav className="mind-tabs" aria-label="Mind sections">
+          {(
+            [
+              ['chat', 'Chat'],
+              ['matches', 'Matches'],
+              ['negotiations', 'Negotiations'],
+              ['open', 'Go Open'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className={`mind-tab${section === key && liveNegotiation === null ? ' is-active' : ''}`}
+              onClick={() => {
+                setSection(key)
+                setLiveNegotiation(null)
+              }}
+              aria-pressed={section === key && liveNegotiation === null}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
 
-        {liveNegotiation !== null && (
+        {liveNegotiation !== null ? (
           <section className="collab-section">
             <NegotiationLive
               targetId={liveNegotiation.targetId}
@@ -323,63 +327,73 @@ export default function MindPage() {
               }}
             />
           </section>
-        )}
-        {feedOpen && liveNegotiation === null && (
-          <section className="collab-section">
-            <MatchFeed
-              creatorId={creatorId}
-              onCollab={(match) => {
-                // Collab right-swipe: close feed, open proposal panel with
-                // this creator pre-selected as the target.
-                setFeedOpen(false)
-                setPendingMatchId(match.creator.creatorId)
-                setCollabOpen(true)
-              }}
-              onLiveNegotiate={(match) => {
-                setFeedOpen(false)
-                setLiveNegotiation({ targetId: match.creator.creatorId, targetName: match.creator.displayName })
-              }}
-            />
-          </section>
-        )}
-        {collabOpen && (
-          <section className="collab-section">
-            <ProposeCollaborationPanel
-              key={pendingMatchId ?? 'default'}
-              creatorId={creatorId}
-              matches={
-                pendingMatchId
-                  ? [...context.matches.matches].sort((a, b) =>
-                      a.creator.creatorId === pendingMatchId
-                        ? -1
-                        : b.creator.creatorId === pendingMatchId
-                          ? 1
-                          : 0,
-                    )
-                  : context.matches.matches
-              }
-              onCreated={() => {
-                // Refresh context so header stats reflect the new collaboration
-                getMindContext(creatorId)
-                  .then((ctx) => setContext(ctx))
-                  .catch(() => {})
-              }}
-              onClose={() => setCollabOpen(false)}
-            />
-          </section>
-        )}
+        ) : (
+          <>
+            {section === 'matches' && (
+              <section className="collab-section">
+                <MatchFeed
+                  creatorId={creatorId}
+                  onCollab={(match) => {
+                    // Collab on a match: switch to negotiations with this
+                    // creator pre-selected as the proposal target.
+                    setSection('negotiations')
+                    setProposeOpen(true)
+                    setPendingMatchId(match.creator.creatorId)
+                  }}
+                  onLiveNegotiate={(match) => {
+                    setLiveNegotiation({ targetId: match.creator.creatorId, targetName: match.creator.displayName })
+                  }}
+                />
+              </section>
+            )}
 
-        <CollaborationNegotiationPanel
-          creatorId={creatorId}
-          collaborations={context.collaborations.collaborations}
-          onChanged={() => {
-            getMindContext(creatorId)
-              .then((ctx) => setContext(ctx))
-              .catch(() => {})
-          }}
-        />
+            {section === 'negotiations' && (
+              <section className="collab-section">
+                {proposeOpen && (
+                  <ProposeCollaborationPanel
+                    key={pendingMatchId ?? 'default'}
+                    creatorId={creatorId}
+                    matches={
+                      pendingMatchId
+                        ? [...context.matches.matches].sort((a, b) =>
+                            a.creator.creatorId === pendingMatchId
+                              ? -1
+                              : b.creator.creatorId === pendingMatchId
+                                ? 1
+                                : 0,
+                          )
+                        : context.matches.matches
+                    }
+                    onCreated={() => {
+                      // Refresh context so header stats reflect the new collaboration
+                      getMindContext(creatorId)
+                        .then((ctx) => setContext(ctx))
+                        .catch(() => {})
+                    }}
+                    onClose={() => setProposeOpen(false)}
+                  />
+                )}
 
-        <section className="mind-chat" aria-label="Conversation">
+                <CollaborationNegotiationPanel
+                  creatorId={creatorId}
+                  collaborations={context.collaborations.collaborations}
+                  onChanged={() => {
+                    getMindContext(creatorId)
+                      .then((ctx) => setContext(ctx))
+                      .catch(() => {})
+                  }}
+                />
+              </section>
+            )}
+
+            {section === 'open' && (
+              <section className="collab-section">
+                <GoOpenPanel creatorId={creatorId} onClose={() => setSection('chat')} />
+              </section>
+            )}
+
+            {section === 'chat' && (
+              <section className="mind-chat" aria-label="Conversation">
           {historyLoading ? (
             <div className="mind-messages" aria-label="Loading history">
               <div className="skeleton-line" />
@@ -537,7 +551,10 @@ export default function MindPage() {
             Search my memories for this question
           </label>
           <p className="mind-hint">Enter to send · Shift+Enter for newline</p>
-        </section>
+            </section>
+            )}
+          </>
+        )}
       </main>
     </Shell>
   )

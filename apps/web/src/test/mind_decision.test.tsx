@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
+import { clickTab } from './tabs.js'
 import { createRoot } from 'react-dom/client'
 import App from '../App.tsx'
 
@@ -88,6 +89,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
@@ -112,6 +114,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
@@ -143,6 +146,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
@@ -174,6 +178,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
@@ -206,6 +211,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
@@ -247,6 +253,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
@@ -283,6 +290,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
@@ -311,6 +319,7 @@ describe('mind decision panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
+import { clickTab } from './tabs.js'
 import { createRoot } from 'react-dom/client'
 import App from '../App.tsx'
 
@@ -117,6 +118,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     expect(document.body.textContent).toContain('N°005 — Negotiation')
     expect(document.body.textContent).toContain('Collaborations')
@@ -132,6 +134,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     expect(document.body.textContent).toContain('Original proposal pending')
     expect(document.body.textContent).toContain('Original proposal')
@@ -148,6 +151,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     // pending has accept/reject
     expect(document.querySelector('[aria-label="Accept collab_pending"]')).not.toBeNull()
@@ -174,6 +178,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const acceptBtn = document.querySelector<HTMLButtonElement>('[aria-label="Accept collab_pending"]')
     expect(acceptBtn).not.toBeNull()
@@ -202,6 +207,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const rejectBtn = document.querySelector<HTMLButtonElement>('[aria-label="Reject collab_pending"]')
     await act(async () => {
@@ -229,6 +235,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const textarea = document.querySelector<HTMLTextAreaElement>('[aria-label="Counter proposal for collab_pending"]')
     expect(textarea).not.toBeNull()
@@ -277,6 +284,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const draftBtn = document.querySelector<HTMLButtonElement>('[aria-label="Draft counter with Mind for collab_pending"]')
     expect(draftBtn).not.toBeNull()
@@ -313,6 +321,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const draftBtn = document.querySelector<HTMLButtonElement>('[aria-label="Draft counter with Mind for collab_pending"]')
     await act(async () => {
@@ -344,6 +353,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const draftBtn = document.querySelector<HTMLButtonElement>('[aria-label="Draft counter with Mind for collab_pending"]')
     await act(async () => {
@@ -371,6 +381,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const draftBtn = document.querySelector<HTMLButtonElement>('[aria-label="Draft counter with Mind for collab_pending"]')
     expect(draftBtn?.disabled).toBe(false)
@@ -405,6 +416,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     const textarea = document.querySelector<HTMLTextAreaElement>('[aria-label="Counter proposal for collab_pending"]')
     // Try submitting empty via button disabled check
@@ -447,6 +459,7 @@ describe('mind negotiation panel', () => {
       renderAppAt('/mind')
     })
     await act(async () => {})
+    await act(async () => { clickTab('Negotiations') })
 
     expect(document.querySelector('[aria-label="Counter proposal for collab_accepted"]')).toBeNull()
     expect(document.querySelector('[aria-label="Draft counter with Mind for collab_accepted"]')).toBeNull()
