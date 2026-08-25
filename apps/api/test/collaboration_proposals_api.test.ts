@@ -136,22 +136,18 @@ describe('collaboration proposals API', () => {
     expect(relevant.map((p) => p.proposal)).toEqual(['Mind One', 'Mind Two', 'Mind Three'])
   })
 
-  it('Mind prompt contains ordered history', async () => {
+  it('Mind prompt keeps the creator question and stays personal (history lives in MindContext, not the chat prompt)', async () => {
     const collabRes = await postCollab('hist_a', { id: 'hist_prompt', targetId: 'hist_e', proposal: 'Prompt One' })
     expect(collabRes.status).toBe(201)
     await postCounter('hist_e', 'hist_prompt', { counterProposal: 'Prompt Two' })
     await postCounter('hist_a', 'hist_prompt', { counterProposal: 'Prompt Three' })
     const ctx = buildMindContext(db, 'hist_a')
+    // The structured context still carries the full ordered history for
+    // deterministic consumers; the chat prompt itself is now conversational.
+    const relevant = ctx.negotiationHistory.filter((h) => h.collaborationId === 'hist_prompt')
+    expect(relevant.map((h) => h.proposal)).toEqual(['Prompt One', 'Prompt Two', 'Prompt Three'])
     const prompt = buildMindPrompt(ctx, 'What is next?')
-    expect(prompt).toContain('Recent negotiation history:')
-    expect(prompt).toContain('hist_a: Prompt One')
-    expect(prompt).toContain('hist_e: Prompt Two')
-    expect(prompt).toContain('hist_a: Prompt Three')
-    // ensure order is preserved
-    const idx1 = prompt.indexOf('Prompt One')
-    const idx2 = prompt.indexOf('Prompt Two')
-    const idx3 = prompt.indexOf('Prompt Three')
-    expect(idx1 < idx2 && idx2 < idx3).toBe(true)
+    expect(prompt).toContain('What is next?')
   })
 
   it('deterministic ordering: history always seq ASC', async () => {

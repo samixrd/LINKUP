@@ -5,6 +5,7 @@ import {
   getCollaboration,
   getCreatorProfile,
   getOpenCollab,
+  getProfileDetails,
   listOpenCollabs,
   findThresholdMatches,
   setOpenCollab,
@@ -22,9 +23,59 @@ import { isNonEmptyString } from './creators/shared.js'
  * - GET  /api/open-collabs/:creatorId/matches  — threshold-compatible partners
  * - POST /api/open-collabs/negotiate           — start the Mind-vs-Mind loop
  *        body: { creatorId, targetId }         (creates pending collab, runs loop)
+ * - POST /api/open-collabs/find-collab         — one-click autonomous flow
+ *        body: { creatorId }                   (auto-publishes card if missing,
+ *                                               picks the best open partner, runs loop)
  * - POST /api/open-collabs/:collaborationId/sign
  *        body: { creatorId, accept, reason? }  — both must sign -> accepted
  */
+
+/** Maps an interview audience-size bucket to a follower number for the terms card. */
+function followersFromAudienceSize(size: string | undefined): number {
+  switch (size) {
+    case 'Just starting':
+      return 100
+    case '~1k':
+      return 1_000
+    case '~10k':
+      return 10_000
+    case '~100k+':
+      return 100_000
+    case '~1M+':
+      return 1_000_000
+    default:
+      return 0
+  }
+}
+
+/** Maps an interview partner-minimum bucket to a follower threshold. */
+function minPartnerFromAudienceSize(size: string | undefined): number {
+  switch (size) {
+    case '~1k':
+      return 1_000
+    case '~10k':
+      return 10_000
+    case '~100k+':
+      return 100_000
+    default:
+      return 0 // any size
+  }
+}
+
+/** Maps interview language names to the open-collab language codes. */
+function languageCodeFromName(name: string): string {
+  const map: Record<string, string> = {
+    English: 'en',
+    Bangla: 'bn',
+    Hindi: 'hi',
+    Spanish: 'es',
+    Portuguese: 'pt',
+    Arabic: 'ar',
+    French: 'fr',
+  }
+  return map[name.trim()] ?? 'en'
+}
+
 export function createOpenCollabRouter(
   db: Database.Database,
   adapter: MindAdapter = stubMindAdapter,
@@ -138,6 +189,86 @@ export function createOpenCollabRouter(
       const state = await runNegotiation({ db, adapter }, collab.id)
       res.status(201).json({
         collaborationId: collab.id,
+        status: state.status,
+        rounds: state.rounds,
+        score: state.score,
+        finalPlan: state.finalPlan,
+        readyForSigning: state.score >= AGREE_THRESHOLD && state.finalPlan !== undefined,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (message.includes('Minds adapter not configured')) {
+        res.status(503).json({ error: message })
+        return
+      }
+      res.status(500).json({ error: 'negotiation failed' })
+    }
+  })
+
+  router.post('/find-collab', async (req, res) => {
+    const body = req.body as Record<string, unknown>
+    const creatorId = body.creatorId
+    if (!isNonEmptyString(creatorId)) {
+      res.status(400).json({ error: 'creatorId is required' })
+      return
+    }
+    if (getCreatorProfile(db, creatorId) === undefined) {
+      res.status(404).json({ error: `creator not found: ${creatorId}` })
+      return
+    }
+
+    try {
+      // 1) Auto-publish my terms card if missing, derived from the profile —
+      //    one click, no forms. Existing cards are left untouched.
+      const existing = getOpenCollab(db, creatorId)
+      if (existing === undefined) {
+        const details = getProfileDetails(db, creatorId)
+        const myFollowers = followersFromAudienceSize(details?.audienceSize)
+        const minPartnerFollowers = minPartnerFromAudienceSize(details?.partnerMinAudience)
+        const languages = (details?.languages ?? []).map(languageCodeFromName)
+        setOpenCollab(db, {
+          creatorId,
+          openToCollab: true,
+          myFollowers,
+          minPartnerFollowers,
+          languages: languages.length > 0 ? languages : ['en'],
+        })
+      }
+
+      // 2) Pick the best open partner. Threshold matches are ordered by
+      //    combined reach (a big-reach but mismatched creator wins, which the
+      //    Mind correctly calls out as a bad fit). Re-rank for FIT: most
+      //    shared languages first, then closest audience size.
+      const matches = findThresholdMatches(db, creatorId)
+      const myFollowers = getOpenCollab(db, creatorId)?.myFollowers ?? 0
+      const ranked = [...matches].sort((a, b) => {
+        const langDiff = (b.sharedLanguages.length - a.sharedLanguages.length)
+        if (langDiff !== 0) return langDiff
+        const reachDiffA = Math.abs((a.them.myFollowers) - myFollowers)
+        const reachDiffB = Math.abs((b.them.myFollowers) - myFollowers)
+        return reachDiffA - reachDiffB
+      })
+      const top = ranked[0]
+      if (top === undefined) {
+        res.status(409).json({ error: 'no compatible open creators right now — publish Go Open terms or try later' })
+        return
+      }
+      const targetId = top.them.creatorId
+
+      // 3) Create the pending collaboration and let both Minds negotiate.
+      const targetProfile = getCreatorProfile(db, targetId)
+      const myProfile = getCreatorProfile(db, creatorId)
+      const collab = createCollaboration(db, {
+        id: `neg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        initiatorId: creatorId,
+        targetId,
+        proposal: `${myProfile?.displayName ?? creatorId} x ${targetProfile?.displayName ?? targetId} — cross-promotion collab, terms worked out by both Minds.`,
+      })
+      const state = await runNegotiation({ db, adapter }, collab.id)
+      res.status(201).json({
+        collaborationId: collab.id,
+        targetId,
+        targetName: targetProfile?.displayName ?? targetId,
         status: state.status,
         rounds: state.rounds,
         score: state.score,

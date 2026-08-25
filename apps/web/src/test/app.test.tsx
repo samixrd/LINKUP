@@ -70,8 +70,38 @@ async function walkOnboardingToIdentity(): Promise<void> {
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
+  // Step avg views
+  clickButtonWithText('1k-10k')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step languages
+  clickButtonWithText('English')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step format
+  clickButtonWithText('Long-form video')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step frequency
+  clickButtonWithText('Weekly')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
   // Step goal
   clickButtonWithText('Grow my audience')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step deal terms
+  clickButtonWithText('Open to anything')
+  await act(async () => {})
+  clickButtonWithText('Continue →')
+  await act(async () => {})
+  // Step small creators
+  clickButtonWithText('Yes — talent matters, not size')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})

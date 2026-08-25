@@ -8,6 +8,7 @@ import CollaborationNegotiationPanel from '../components/CollaborationNegotiatio
 import ProposeCollaborationPanel from '../components/ProposeCollaborationPanel'
 import MatchFeed from '../components/MatchFeed'
 import NegotiationLive from '../components/NegotiationLive'
+import GoOpenPanel from '../components/GoOpenPanel'
 
 type Message = { id?: string; role: 'user' | 'mind'; content: string }
 
@@ -51,7 +52,8 @@ export default function MindPage() {
   const [collabOpen, setCollabOpen] = useState(false)
   const [pendingMatchId, setPendingMatchId] = useState<string | null>(null)
   const [feedOpen, setFeedOpen] = useState(false)
-  const [liveNegotiation, setLiveNegotiation] = useState<{ targetId: string; targetName: string } | null>(null)
+  const [liveNegotiation, setLiveNegotiation] = useState<{ targetId?: string; targetName?: string } | null>(null)
+  const [goOpen, setGoOpen] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -270,6 +272,14 @@ export default function MindPage() {
             <button
               type="button"
               className="btn collab-open-btn"
+              onClick={() => setLiveNegotiation({})}
+              aria-label="Let your Mind find a collab"
+            >
+              Find Collab ⚡
+            </button>
+            <button
+              type="button"
+              className="btn collab-open-btn"
               onClick={() => setFeedOpen(true)}
               aria-label="Find creators"
             >
@@ -283,8 +293,22 @@ export default function MindPage() {
             >
               Propose Collaboration ↗
             </button>
+            <button
+              type="button"
+              className="btn collab-open-btn"
+              onClick={() => setGoOpen((v) => !v)}
+              aria-label="Go open for collaborations"
+            >
+              {goOpen ? 'Hide Open Terms ▲' : 'Go Open ⚡'}
+            </button>
           </div>
         </header>
+
+        {goOpen && liveNegotiation === null && (
+          <section className="collab-section">
+            <GoOpenPanel creatorId={creatorId} onClose={() => setGoOpen(false)} />
+          </section>
+        )}
 
         {liveNegotiation !== null && (
           <section className="collab-section">

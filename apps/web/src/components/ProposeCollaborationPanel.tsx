@@ -164,6 +164,25 @@ export default function ProposeCollaborationPanel({
                 <span className="collab-score">{preview.score} shared terms</span>
               </div>
               {preview.target.bio && <p className="collab-preview-bio">{preview.target.bio}</p>}
+              {preview.targetDetails && (
+                <ul className="match-stats" aria-label="Target creator stats" style={{ justifyContent: 'flex-start' }}>
+                  {(
+                    [
+                      preview.targetDetails.audienceSize ? `👥 ${preview.targetDetails.audienceSize}` : '',
+                      preview.targetDetails.avgViews ? `👁 ${preview.targetDetails.avgViews} avg views` : '',
+                      preview.targetDetails.languages && preview.targetDetails.languages.length > 0 ? `🗣 ${preview.targetDetails.languages.join(', ')}` : '',
+                      preview.targetDetails.compensation && preview.targetDetails.compensation.length > 0 ? `💰 ${preview.targetDetails.compensation.join(' / ')}` : '',
+                      preview.targetDetails.minBudget ? `🏷 ${preview.targetDetails.minBudget}` : '',
+                    ] as string[]
+                  )
+                    .filter((chip) => chip !== '')
+                    .map((chip) => (
+                      <li key={chip} className="match-stat">
+                        {chip}
+                      </li>
+                    ))}
+                </ul>
+              )}
               {preview.sharedTerms.length > 0 && (
                 <ul className="collab-terms" aria-label="Shared terms">
                   {preview.sharedTerms.map((term) => (

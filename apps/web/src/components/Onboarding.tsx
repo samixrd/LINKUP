@@ -18,14 +18,18 @@ interface Props {
   onDone: (result: OnboardingResult) => void
 }
 
-const CRAFTS = ['Music', 'Video', 'Art', 'Writing', 'Streaming', 'Photography']
-const PLATFORMS = ['YouTube', 'TikTok', 'Instagram', 'Twitch', 'X']
-const AUDIENCE = ['Just starting', '~1k', '~10k', '~100k+']
+const CRAFTS = ['Music', 'Video', 'Art', 'Writing', 'Streaming', 'Photography', 'Gaming', 'Comedy', 'Education', 'Fitness', 'Food', 'Tech']
+const PLATFORMS = ['YouTube', 'TikTok', 'Instagram', 'Twitch', 'X', 'Podcast', 'Newsletter']
+const AUDIENCE = ['Just starting', '~1k', '~10k', '~100k+', '~1M+']
+const AVIEWS = ['<1k', '1k-10k', '10k-100k', '100k+']
+const LANGS = ['English', 'Bangla', 'Hindi', 'Spanish', 'Other']
+const FORMATS = ['Short-form (Reels/TikTok)', 'Long-form video', 'Live streams', 'Podcast/audio', 'Written/newsletter']
+const FREQ = ['Daily', 'A few times a week', 'Weekly', "When inspiration hits"]
 const GOALS = [
-  { label: 'Grow my audience', memory: 'Grow my audience and reach new viewers' },
-  { label: 'Make money creating', memory: 'Monetize my content and find paid opportunities' },
-  { label: 'Find collab partners', memory: 'Find creators to collaborate with regularly' },
-  { label: 'Level up my craft', memory: 'Improve my creative skills through collaboration' },
+  { label: 'Grow my audience', memory: 'My #1 goal: grow my audience — my Mind should find collab partners whose audience overlaps mine so we can cross-promote and I gain new viewers' },
+  { label: 'Make money creating', memory: 'My #1 goal: make money creating — my Mind should prioritize paid collabs, sponsored deals and revenue-share opportunities and negotiate budget for me' },
+  { label: 'Find collab partners', memory: 'My #1 goal: find long-term collab partners — my Mind should look for creators I can build an ongoing series with, not just one-off deals' },
+  { label: 'Level up my craft', memory: 'My #1 goal: level up my craft — my Mind should find slightly more experienced creators who can mentor me through collaborations' },
 ]
 const VIBES = [
   { label: 'Chill & flexible', memory: 'Prefers chill, low-pressure collaborators' },
@@ -33,8 +37,22 @@ const VIBES = [
   { label: 'Experimental', memory: 'Loves experimental, out-there ideas' },
   { label: 'Trendy & fast', memory: 'Wants fast-moving trend-driven collaborations' },
 ]
+const DEALS = [
+  { label: 'Paid gigs only', memory: 'Deal terms: paid collaborations only — free/barter deals do not interest me' },
+  { label: 'Barter / shout-for-shout', memory: 'Deal terms: barter deals — I trade shoutouts, features and appearances instead of money' },
+  { label: 'Revenue share', memory: 'Deal terms: revenue-share — I prefer splitting earnings on joint content' },
+  { label: 'Free — fun & reach', memory: 'Deal terms: free collaborations — I collab for fun, learning and audience reach, no money needed' },
+  { label: 'Open to anything', memory: 'Deal terms: open to any deal type — judge each collab on the idea, not the money' },
+]
+const SMALLS = [
+  { label: 'Yes — talent matters, not size', memory: 'I happily collaborate with brand-new creators, even 0 followers, if the idea is great' },
+  { label: 'Only if the idea is amazing', memory: "I collaborate with small creators only when the idea is truly exceptional" },
+  { label: 'No — I need established partners', memory: 'I only collaborate with established creators — my Mind should filter out very small channels' },
+]
 
-type Phase = 'welcome' | 'craft' | 'platforms' | 'audience' | 'goal' | 'vibe' | 'identity' | 'login'
+type Phase =
+  | 'welcome' | 'craft' | 'platforms' | 'audience' | 'avgViews' | 'langs'
+  | 'format' | 'freq' | 'goal' | 'deal' | 'small' | 'vibe' | 'identity' | 'login'
 
 function Chip({
   active,
@@ -65,7 +83,13 @@ export default function Onboarding({ onDone }: Props) {
   const [crafts, setCrafts] = useState<string[]>([])
   const [platforms, setPlatforms] = useState<string[]>([])
   const [audience, setAudience] = useState('')
+  const [avgViews, setAvgViews] = useState('')
+  const [langs, setLangs] = useState<string[]>([])
+  const [format, setFormat] = useState('')
+  const [freq, setFreq] = useState('')
   const [goal, setGoal] = useState<{ label: string; memory: string } | null>(null)
+  const [deal, setDeal] = useState<{ label: string; memory: string } | null>(null)
+  const [small, setSmall] = useState<{ label: string; memory: string } | null>(null)
   const [vibe, setVibe] = useState<{ label: string; memory: string } | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [handle, setHandle] = useState('')
@@ -85,7 +109,7 @@ export default function Onboarding({ onDone }: Props) {
     setBusy(true)
     setError('')
     try {
-      const memories: Array<{ category: 'goal' | 'preference'; content: string }> = []
+      const memories: Array<{ category: 'goal' | 'preference' | 'constraint'; content: string }> = []
       if (crafts.length > 0) {
         memories.push({ category: 'preference', content: `I create: ${crafts.join(', ')}` })
       }
@@ -95,7 +119,14 @@ export default function Onboarding({ onDone }: Props) {
           content: `My platforms: ${platforms.join(', ')}${audience ? ` (audience ${audience})` : ''}`,
         })
       }
+      if (audience) memories.push({ category: 'preference', content: `My audience size: ${audience}` })
+      if (avgViews) memories.push({ category: 'preference', content: `My average views: ${avgViews}` })
+      if (langs.length > 0) memories.push({ category: 'preference', content: `I create content in: ${langs.join(', ')}` })
+      if (format) memories.push({ category: 'preference', content: `My main content format: ${format}` })
+      if (freq) memories.push({ category: 'preference', content: `My posting frequency: ${freq}` })
       if (goal) memories.push({ category: 'goal', content: goal.memory })
+      if (deal) memories.push({ category: 'constraint', content: deal.memory })
+      if (small) memories.push({ category: 'constraint', content: small.memory })
       if (vibe) memories.push({ category: 'preference', content: vibe.memory })
 
       const result = await registerAccount({
@@ -136,13 +167,14 @@ export default function Onboarding({ onDone }: Props) {
   // --- Card shells -------------------------------------------------------
 
   const stepIndex =
-    { welcome: 0, craft: 1, platforms: 2, audience: 3, goal: 4, vibe: 5, identity: 6, login: 6 }[phase]
+    { welcome: 0, craft: 1, platforms: 2, audience: 3, avgViews: 4, langs: 5, format: 6, freq: 7, goal: 8, deal: 9, small: 10, vibe: 11, identity: 12, login: 12 }[phase]
+  const TOTAL_STEPS = 12
 
   
   return (
     <section className="card onboarding" aria-label="Set up your Mind">
       <p className="card-kicker">
-        {phase === 'login' ? 'Welcome back' : `Step ${stepIndex} of 6`}
+        {phase === 'login' ? 'Welcome back' : `Step ${stepIndex} of ${TOTAL_STEPS}`}
       </p>
 
       {phase === 'welcome' && (
@@ -179,6 +211,63 @@ export default function Onboarding({ onDone }: Props) {
         </>
       )}
 
+      {phase === 'avgViews' && (
+        <>
+          <h2 className="card-title">Average views per post?</h2>
+          <p className="card-body">Rough numbers fine — partners use this to size the deal.</p>
+          <div className="chips chips-col">
+            {AVIEWS.map((v) => (
+              <Chip key={v} active={avgViews === v} onClick={() => setAvgViews(v)}>
+                {v}
+              </Chip>
+            ))}
+          </div>
+          <NextButton disabled={!avgViews} onClick={() => setPhase('langs')} label="Continue →" />
+        </>
+      )}
+
+      {phase === 'langs' && (
+        <>
+          <h2 className="card-title">What language(s) do you create in?</h2>
+          <div className="chips">
+            {LANGS.map((l) => (
+              <Chip key={l} active={langs.includes(l)} onClick={() => toggle(langs, l, setLangs)}>
+                {l}
+              </Chip>
+            ))}
+          </div>
+          <NextButton disabled={langs.length === 0} onClick={() => setPhase('format')} label="Continue →" />
+        </>
+      )}
+
+      {phase === 'format' && (
+        <>
+          <h2 className="card-title">Your main content format?</h2>
+          <div className="chips chips-col">
+            {FORMATS.map((f) => (
+              <Chip key={f} active={format === f} onClick={() => setFormat(f)}>
+                {f}
+              </Chip>
+            ))}
+          </div>
+          <NextButton disabled={!format} onClick={() => setPhase('freq')} label="Continue →" />
+        </>
+      )}
+
+      {phase === 'freq' && (
+        <>
+          <h2 className="card-title">How often do you post?</h2>
+          <div className="chips chips-col">
+            {FREQ.map((f) => (
+              <Chip key={f} active={freq === f} onClick={() => setFreq(f)}>
+                {f}
+              </Chip>
+            ))}
+          </div>
+          <NextButton disabled={!freq} onClick={() => setPhase('goal')} label="Continue →" />
+        </>
+      )}
+
       {phase === 'platforms' && (
         <>
           <h2 className="card-title">Where do you post?</h2>
@@ -208,7 +297,7 @@ export default function Onboarding({ onDone }: Props) {
               </Chip>
             ))}
           </div>
-          <NextButton disabled={!audience} onClick={() => setPhase('goal')} label="Continue →" />
+          <NextButton disabled={!audience} onClick={() => setPhase('avgViews')} label="Continue →" />
         </>
       )}
 
@@ -222,7 +311,37 @@ export default function Onboarding({ onDone }: Props) {
               </Chip>
             ))}
           </div>
-          <NextButton disabled={!goal} onClick={() => setPhase('vibe')} label="Continue →" />
+          <NextButton disabled={!goal} onClick={() => setPhase('deal')} label="Continue →" />
+        </>
+      )}
+
+      {phase === 'deal' && (
+        <>
+          <h2 className="card-title">What deal types work for you?</h2>
+          <p className="card-body">Your Mind negotiates on your behalf — it needs to know your terms.</p>
+          <div className="chips chips-col">
+            {DEALS.map((d) => (
+              <Chip key={d.label} active={deal?.label === d.label} onClick={() => setDeal(d)}>
+                {d.label}
+              </Chip>
+            ))}
+          </div>
+          <NextButton disabled={!deal} onClick={() => setPhase('small')} label="Continue →" />
+        </>
+      )}
+
+      {phase === 'small' && (
+        <>
+          <h2 className="card-title">Collab with small/new creators?</h2>
+          <p className="card-body">Even 0-follower creators — if their idea is great?</p>
+          <div className="chips chips-col">
+            {SMALLS.map((s) => (
+              <Chip key={s.label} active={small?.label === s.label} onClick={() => setSmall(s)}>
+                {s.label}
+              </Chip>
+            ))}
+          </div>
+          <NextButton disabled={!small} onClick={() => setPhase('vibe')} label="Continue →" />
         </>
       )}
 

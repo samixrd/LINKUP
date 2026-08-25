@@ -98,6 +98,22 @@ export type { GrowthOutcome, NewGrowthOutcome, GrowthDelta } from './growth.js'
 export { buildMindContext, stubMindAdapter } from './mind.js'
 export type { MindContext, MindAdapter, MindMemorySearch, MindContextOptions } from './mind.js'
 export {
+  AUDIENCE_BUCKETS,
+  COLLAB_TYPES,
+  AVAILABILITY_BUCKETS,
+  getProfileDetails,
+  setProfileDetails,
+  profileDetailsCompleteness,
+  totalDetailFields,
+} from './profile_details.js'
+export type {
+  ProfileDetails,
+  ProfileDetailsUpdates,
+  AudienceBucket,
+  CollabType,
+  AvailabilityBucket,
+} from './profile_details.js'
+export {
   setOpenCollab,
   getOpenCollab,
   listOpenCollabs,

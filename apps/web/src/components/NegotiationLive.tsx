@@ -15,6 +15,8 @@ interface Round {
 
 interface NegotiateResponse {
   collaborationId: string
+  targetId?: string
+  targetName?: string
   status: 'negotiating' | 'ready' | 'signed' | 'failed' | 'stalled'
   rounds: Round[]
   score: number
@@ -23,8 +25,9 @@ interface NegotiateResponse {
 }
 
 interface Props {
-  targetId: string
-  targetName: string
+  /** When omitted, the Mind picks the best open partner itself (find-collab). */
+  targetId?: string
+  targetName?: string
   onClose: () => void
 }
 
@@ -34,13 +37,14 @@ function shortName(id: string): string {
   return id.startsWith('u_') ? id.slice(2) : id
 }
 
-export default function NegotiationLive({ targetId, targetName, onClose }: Props) {
+export default function NegotiationLive({ targetId: presetTarget, targetName: presetName, onClose }: Props) {
   const creatorId = getStoredCreatorId()
   const [rounds, setRounds] = useState<Round[]>([])
   const [status, setStatus] = useState<'running' | 'ready' | 'failed'>('running')
   const [finalPlan, setFinalPlan] = useState('')
   const [score, setScore] = useState(0)
   const [collaborationId, setCollaborationId] = useState('')
+  const [targetName, setTargetName] = useState(presetName ?? 'a creator')
   const [signed, setSigned] = useState(false)
   const [error, setError] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
@@ -51,10 +55,14 @@ export default function NegotiationLive({ targetId, targetName, onClose }: Props
 
     async function run() {
       try {
-        const res = await fetch('/api/open-collabs/negotiate', {
+        // One click: with no preset target, the Mind finds the best open
+        // partner itself and starts negotiating immediately.
+        const path = presetTarget ? '/api/open-collabs/negotiate' : '/api/open-collabs/find-collab'
+        const payload = presetTarget ? { creatorId, targetId: presetTarget } : { creatorId }
+        const res = await fetch(path, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ creatorId, targetId }),
+          body: JSON.stringify(payload),
         })
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string }
@@ -62,6 +70,7 @@ export default function NegotiationLive({ targetId, targetName, onClose }: Props
         }
         const body = (await res.json()) as NegotiateResponse
         if (cancelled) return
+        if (body.targetName) setTargetName(body.targetName)
         // Reveal rounds one by one for drama — each ~900ms apart.
         for (let i = 0; i < body.rounds.length; i++) {
           await new Promise((r) => setTimeout(r, 900))
@@ -80,7 +89,7 @@ export default function NegotiationLive({ targetId, targetName, onClose }: Props
     return () => {
       cancelled = true
     }
-  }, [creatorId, targetId])
+  }, [creatorId, presetTarget])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })

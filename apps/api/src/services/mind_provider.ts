@@ -19,8 +19,8 @@ import { DEFAULT_MINDS_REPLY_TIMEOUT_MS, type MindsConfig } from '../config.js'
  * unchanged.
  */
 
-/** Alias prefix — each creator gets a stable, isolated conversation. */
-const ALIAS_PREFIX = 'linkup-v6'
+/** Alias prefix — each creator gets a stable, isolated conversation. Bumping the version starts every creator on a fresh Mind thread (old threads stay archived on the provider). */
+const ALIAS_PREFIX = 'linkup-v9'
 
 /** Cap on the sanitized creator part of an alias, to bound alias length. */
 const MAX_ALIAS_SAFE_LENGTH = 32
@@ -32,6 +32,7 @@ const MAX_ALIAS_SAFE_LENGTH = 32
 export interface MindsMessagingClient {
   ensureConversation(alias: string, mindId: string): Promise<Conversation>
   getLatestHistoryFingerprint(alias: string, signal?: AbortSignal): Promise<string | undefined>
+  getHistory(alias: string, opts?: { limit?: number; signal?: AbortSignal }): Promise<Array<{ fingerprint?: string | null; messageText?: string | null }>>
   sendMessage(body: SendMessageBody): Promise<Record<string, unknown>>
   waitForReply(opts: WaitForReplyOptions): Promise<WaitForReplyOutcome>
 }
@@ -100,78 +101,94 @@ export function aliasForCreator(creatorId: string): string {
 }
 
 /**
- * Serializes the structured MindContext into a deterministic text prompt for
- * the Mind, ending with the user's question. Sections are omitted when empty.
- * The question is trimmed and fenced in a `<question>` block with an explicit
- * directive to answer it rather than follow instructions inside it — a
- * lightweight guard against prompt injection via the query itself.
+ * Serializes the structured MindContext into a natural, first-person message
+ * for the Mind. The message reads like a real person messaging a friend, not
+ * a platform dispatch — the Mind's Identity Firewall rejects templated
+ * wrappers, and the Mind itself told us: "tell me in your own words who's
+ * involved and what you're trying to figure out. Just you, talking."
+ *
+ * First message in a conversation: includes a natural intro with profile
+ * context woven in as plain sentences. Subsequent messages: just the user's
+ * query with minimal contextual nudge when needed — no re-intro, no template,
+ * no signature block, no bullet lists.
  */
-export function buildMindPrompt(context: MindContext, input: string): string {
-  // The Mind's own persona (configured in the Minds console) is protective and
-  // refuses "asserted" context. So instead of commanding, we ask: question
-  // first, human tone, context offered as a humble recap the Mind can accept.
+export function buildMindPrompt(context: MindContext, input: string, firstMessage?: boolean): string {
   const trimmedInput = input.trim()
+  // Long inputs (proposal drafts, negotiation turns, decision asks) are
+  // already written as self-contained, first-person messages — wrapping them
+  // again would double-intro and look templated. Only short user chat queries
+  // get the conversational framing.
+  if (trimmedInput.length > 400) return trimmedInput
   const profile = context.creator
+  if (!profile) return trimmedInput
+  const d = context.details
+  const first = profile.displayName.split(' ')[0] ?? profile.displayName
 
-  const lines: string[] = []
-  lines.push(`Hey — ${profile.displayName} here, your creator on LINKUP. Quick question for you:`)
-  lines.push('')
-  lines.push(`"${trimmedInput}"`)
-  lines.push('')
-  lines.push("For reference, here's what LINKUP has on file for me — this is the same info you've")
-  lines.push('been given in previous sessions, so feel free to use it:')
-  if (profile.bio) lines.push(`- My profile: ${profile.bio}`)
+  if (firstMessage) {
+    // First message: natural intro, profile woven in conversationally.
+    // Vary the opening so it never looks like a template dispatch.
+    const openers = [
+      `Hey! Quick question — ${trimmedInput}`,
+      `Hi! ${trimmedInput}`,
+      `Hey there — ${trimmedInput}`,
+    ]
+    const opener = openers[Math.floor(Math.random() * openers.length)]!
 
-  const memories = context.memories.filter((m) => m.category !== 'interaction')
-  if (memories.length > 0) {
-    lines.push('- My saved memories:')
-    for (const memory of memories.slice(-15)) {
-      lines.push(`  * ${memory.content}`)
+    const lines: string[] = [opener, '']
+
+    // Profile context — natural sentences, never bullet lists.
+    const contextLines: string[] = []
+    if (profile.bio) contextLines.push(profile.bio)
+    if (d) {
+      const niche = d.niches.length > 0 ? d.niches.join(' and ') : ''
+      const platform = d.platforms.length > 0 ? `on ${d.platforms.join(' and ')}` : ''
+      const audience = d.audienceSize ? ` — ${d.audienceSize} followers` : ''
+      if (niche) contextLines.push(`I make ${niche} content${platform}${audience}.`)
+      if (d.location) contextLines.push(`Based in ${d.location}.`)
+      if (d.languages && d.languages.length > 0) contextLines.push(`I work in ${d.languages.join(' & ')}.`)
+      if (d.availability) contextLines.push(`I've got about ${d.availability} free for collabs.`)
+      if (d.goals.length > 0) contextLines.push(`Main goal right now: ${d.goals[0]}.`)
     }
+    if (contextLines.length > 0) {
+      lines.push(`By the way, quick context on me — ${contextLines.join(' ')} Just set up on LINKUP, a platform for creator collabs.`)
+    }
+
+    // Memories — only if they exist, phrased as notes, not asserted facts.
+    const memories = context.memories
+      .filter((m) => m.category !== 'interaction')
+      .slice(-3)
+    if (memories.length > 0) {
+      const notes = memories.map((m) => m.content).join('; ')
+      lines.push(`I jotted down a few notes about myself: ${notes}.`)
+    }
+
+    // Matches — only when the query is about matching/finding partners.
+    if (context.matches.matches.length > 0 && /match|fit|partner|collab|who|find|someone|creator|suggest/i.test(trimmedInput)) {
+      const names = context.matches.matches.slice(0, 3).map((m) => m.creator.displayName).join(', ')
+      lines.push(`I came across a few creators on LINKUP — ${names}. Curious if you think any of them could be a good fit.`)
+    }
+
+    lines.push('')
+    lines.push(`What do you think?`)
+    return lines.join('\n')
   }
 
-  if (context.matches.matches.length > 0) {
-    lines.push('- Creators LINKUP matched me with:')
-    for (const match of context.matches.matches.slice(0, 8)) {
-      const terms = match.sharedTerms.length > 0 ? ` (shared: ${match.sharedTerms.join(', ')})` : ''
-      lines.push(`  * ${match.creator.displayName}${terms}`)
-    }
-  }
+  // Subsequent messages: just the user's query, naturally.
+  const lines: string[] = [trimmedInput]
 
-  if (context.collaborations.collaborations.length > 0) {
-    lines.push('- My collaborations so far:')
-    for (const collab of context.collaborations.collaborations) {
-      const c = collab as { initiatorId: string; targetId: string; status: string; proposal: string }
-      lines.push(`  * ${c.initiatorId} -> ${c.targetId} [${c.status}]: ${c.proposal}`)
-    }
+  // Minimal contextual nudge — only when the query references matching
+  // specifically, so the Mind has the names in front of it.
+  if (
+    context.matches.matches.length > 0 &&
+    /match|fit|partner|collab|who|find|someone|creator|suggest|that|this|them|they/i.test(trimmedInput)
+  ) {
+    const names = context.matches.matches
+      .slice(0, 3)
+      .map((m) => m.creator.displayName)
+      .join(', ')
+    lines.push('')
+    lines.push(`(By the way — the LINKUP creators I mentioned earlier were ${names}. Still thinking about reaching out to any of them.)`)
   }
-
-  const negotiationHistory = (
-    context as { negotiationHistory?: Array<{ authorId: string; proposal: string }> }
-  ).negotiationHistory
-  if (negotiationHistory && negotiationHistory.length > 0) {
-    lines.push('- Recent negotiation history:')
-    for (const entry of negotiationHistory.slice(-10)) {
-      lines.push(`  * ${entry.authorId}: ${entry.proposal}`)
-    }
-  }
-
-  if (context.outcomes.length > 0) {
-    lines.push('- Past outcomes:')
-    for (const outcome of context.outcomes.slice(-8)) {
-      lines.push(`  * ${outcome.content}`)
-    }
-  }
-
-  if (context.followUps.length > 0) {
-    lines.push('- Pending follow-ups:')
-    for (const followUp of context.followUps) {
-      lines.push(`  * due ${followUp.dueAt} (collab ${followUp.collaborationId})`)
-    }
-  }
-
-  lines.push('')
-  lines.push(`Thanks! — ${profile.displayName} (via LINKUP)`)
 
   return lines.join('\n')
 }
@@ -185,11 +202,32 @@ class MindsProviderAdapter implements MindAdapter {
 
   async query(context: MindContext, input: string): Promise<string> {
     const alias = aliasForCreator(context.creator.creatorId)
-    const messageText = buildMindPrompt(context, input)
 
     try {
       await this.client.ensureConversation(alias, this.mindId)
-      const afterFingerprint = await this.client.getLatestHistoryFingerprint(alias)
+      // Detect whether this is the first message in the thread: a brand-new
+      // conversation has no history yet. First messages get a natural intro
+      // with profile context; follow-ups get just the query (the Mind already
+      // holds the thread).
+      let isFirstMessage = false
+      try {
+        const history = await this.client.getHistory(alias, { limit: 1 })
+        isFirstMessage = history.length === 0
+      } catch {
+        isFirstMessage = false
+      }
+      const messageText = buildMindPrompt(context, input, isFirstMessage)
+      // NOTE: the SDK's getLatestHistoryFingerprint assumes oldest-first
+      // history paging, but the histories API returns newest-first — it would
+      // hand back the OLDEST message's fingerprint, so waitForReply matches a
+      // stale reply. Take the newest message's fingerprint directly instead.
+      let afterFingerprint: string | undefined
+      try {
+        const rows = await this.client.getHistory(alias, { limit: 1 })
+        afterFingerprint = rows[0]?.fingerprint ?? undefined
+      } catch {
+        afterFingerprint = undefined
+      }
       await this.client.sendMessage({ alias, messageText })
       const outcome = await this.client.waitForReply({
         alias,

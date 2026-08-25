@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMatches } from '../api'
-import type { CreatorProfile } from '../api'
+import type { CreatorProfile, ProfileDetails } from '../api'
 
 /**
  * Tinder-style match feed: compatibility matches rendered as swipeable
@@ -10,6 +10,7 @@ import type { CreatorProfile } from '../api'
 
 export interface MatchCard {
   creator: CreatorProfile
+  details?: ProfileDetails
   score: number
   sharedTerms: string[]
   weightedScore?: number
@@ -19,6 +20,34 @@ interface Props {
   creatorId: string
   onCollab: (match: MatchCard) => void
   onLiveNegotiate?: (match: MatchCard) => void
+}
+
+/**
+ * Info-rich stats strip on a match card: audience, avg views, platforms,
+ * languages, and deal terms — everything the interview now captures.
+ */
+function MatchStats({ details }: { details: ProfileDetails }) {
+  const chips: string[] = []
+  if (details.audienceSize) chips.push(`👥 ${details.audienceSize}`)
+  if (details.avgViews) chips.push(`👁 ${details.avgViews} avg views`)
+  if (details.platforms.length > 0) chips.push(details.platforms.join(' · '))
+  if (details.languages && details.languages.length > 0) {
+    chips.push(`🗣 ${details.languages.join(', ')}`)
+  }
+  if (details.location) chips.push(`📍 ${details.location}`)
+  if (details.compensation && details.compensation.length > 0) {
+    chips.push(`💰 ${details.compensation.join(' / ')}`)
+  }
+  if (chips.length === 0) return null
+  return (
+    <ul className="match-stats" aria-label="Creator stats">
+      {chips.map((chip) => (
+        <li key={chip} className="match-stat">
+          {chip}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 export default function MatchFeed({ creatorId, onCollab, onLiveNegotiate }: Props) {
@@ -36,6 +65,7 @@ export default function MatchFeed({ creatorId, onCollab, onLiveNegotiate }: Prop
         setMatches(
           body.matches.map((m) => ({
             creator: m.creator,
+            details: m.details,
             score: m.score,
             sharedTerms: m.sharedTerms,
             weightedScore: (m as unknown as { weightedScore?: number }).weightedScore,
@@ -101,6 +131,7 @@ export default function MatchFeed({ creatorId, onCollab, onLiveNegotiate }: Prop
         </span>
         <h3 className="match-name">{current.creator.displayName}</h3>
         {current.creator.bio !== '' && <p className="match-bio">{current.creator.bio}</p>}
+        {current.details && <MatchStats details={current.details} />}
         <p className="match-score">
           <strong>{current.weightedScore ?? current.score} match strength</strong> —{' '}
           {current.sharedTerms.length} shared {current.sharedTerms.length === 1 ? 'interest' : 'interests'}

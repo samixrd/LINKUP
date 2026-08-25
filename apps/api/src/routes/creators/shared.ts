@@ -8,6 +8,11 @@ export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== ''
 }
 
+/** True for a non-empty array whose entries are all non-empty strings. */
+export function isNonEmptyStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === 'string' && v.trim() !== '')
+}
+
 /** True for a string of one or more ASCII digits (e.g. "0", "42"). */
 export function isIntegerString(value: unknown): value is string {
   return typeof value === 'string' && /^\d+$/.test(value)

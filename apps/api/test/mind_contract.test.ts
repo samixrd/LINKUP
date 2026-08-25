@@ -30,13 +30,13 @@ describe('mocked-provider contract - all Mind flows', () => {
     const adapter: MindAdapter = {
       async query(_context, input) {
         // Route based on input content to simulate different flows
-        if (input.includes('Draft a collaboration proposal')) {
+        if (input.includes('quick favor') || input.includes('proposing a collab')) {
           return 'Contract collaboration proposal'
         }
-        if (input.includes('Draft a thoughtful counter-proposal')) {
+        if (input.includes('working out a collab')) {
           return 'Contract counter proposal'
         }
-        if (input.includes('MUST output ONLY a JSON object')) {
+        if (input.includes('JSON object like')) {
           return jsonDecision('accept', 'Contract reasoning')
         }
         return 'Hello from Mind'
@@ -239,7 +239,7 @@ describe('mocked-provider contract - all Mind flows', () => {
     addCreatorMemory(mutDb, { id: 'mut_mem_b', creatorId: 'mut_b', category: 'preference', content: 'Pottery' })
     const adapter: MindAdapter = {
       async query(_context, input) {
-        if (typeof input === 'string' && input.includes('MUST output ONLY a JSON object')) {
+        if (typeof input === 'string' && input.includes('JSON object like')) {
           return JSON.stringify({ action: 'accept', reasoning: 'ok' })
         }
         return 'Proposal'

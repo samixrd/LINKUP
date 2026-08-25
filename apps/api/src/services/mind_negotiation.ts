@@ -155,30 +155,29 @@ async function draftCounterProposal(
 ): Promise<string> {
   const otherId =
     collaboration.initiatorId === context.creator.creatorId ? collaboration.targetId : collaboration.initiatorId
+  const otherName = getOtherDisplayName(context, collaboration, otherId)
   const currentProposal = collaboration.counterProposal ?? collaboration.proposal
   // Build ordered history from MindContext (which already aggregates via repository)
   let historyLines: string[] = []
   const ctxHistory = (context as unknown as { negotiationHistory?: Array<{ collaborationId: string; seq: number; authorId: string; proposal: string }> }).negotiationHistory
   const relevant = ctxHistory?.filter((h) => h.collaborationId === collaboration.id).sort((a, b) => a.seq - b.seq) ?? []
   if (relevant.length > 0) {
-    historyLines = relevant.map((h) => `${h.seq}. by ${h.authorId}: "${singleLine(h.proposal)}"`)
+    historyLines = relevant.map((h) => `${h.seq}. by ${displayNameFor(context, h.authorId)}: "${singleLine(h.proposal)}"`)
   }
   // Fallback to single if historyLines empty
   if (historyLines.length === 0) {
-    historyLines = [`1. by ${collaboration.initiatorId}: "${singleLine(collaboration.proposal)}"`]
+    historyLines = [`1. by ${displayNameFor(context, collaboration.initiatorId)}: "${singleLine(collaboration.proposal)}"`]
     if (collaboration.counterProposal) {
-      historyLines.push(`2. by ${collaboration.proposedBy}: "${singleLine(collaboration.counterProposal)}"`)
+      historyLines.push(`2. by ${displayNameFor(context, collaboration.proposedBy)}: "${singleLine(collaboration.counterProposal)}"`)
     }
   }
   const instruction = [
-    `You are the Mind for ${singleLine(context.creator.displayName)} (${context.creator.creatorId}).`,
-    `They are negotiating a collaboration (${collaboration.id}) with ${otherId}.`,
-    `Current status: ${collaboration.status}.`,
-    `Proposal history (in order):`,
-    ...historyLines,
-    `Current proposal to respond to: "${singleLine(currentProposal)}".`,
-    `Draft a thoughtful counter-proposal that moves the negotiation forward.`,
-    'Output only the proposal text — no greeting, no preamble, no markdown, no quotes.',
+    `Hey — I'm working out a collab with ${otherName} and could use your read on it.`,
+    `Here's the conversation so far:`,
+    ...historyLines.map((h) => `- ${h}`),
+    `The latest offer on the table: "${singleLine(currentProposal)}".`,
+    `Should I accept this, or push back on something? If I push back, help me write my reply — one specific counter-proposal that moves things forward.`,
+    `Write just what I'd send back.`,
   ]
     .filter((line) => line !== '')
     .join('\n')
@@ -191,6 +190,23 @@ async function draftCounterProposal(
     throw new Error('adapter returned an over-long counter-proposal')
   }
   return proposal
+}
+
+/** Resolves a creator's display name from the context's matches when possible. */
+function getOtherDisplayName(
+  context: MindContext,
+  collaboration: Collaboration,
+  otherId: string,
+): string {
+  const match = context.matches.matches.find((m) => m.creator.creatorId === otherId)
+  return match?.creator.displayName ?? otherId
+}
+
+/** Resolves a display name for a history author, falling back to the raw ID. */
+function displayNameFor(context: MindContext, id: string): string {
+  const match = context.matches.matches.find((m) => m.creator.creatorId === id)
+  if (match) return match.creator.displayName
+  return id === context.creator.creatorId ? context.creator.displayName : id
 }
 
 function singleLine(value: string): string {

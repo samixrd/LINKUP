@@ -1455,6 +1455,25 @@ textarea.field-input {
   font-size: 0.9rem;
 }
 
+.match-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: center;
+}
+
+.match-stat {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(31, 31, 31, 0.06);
+  font-size: 0.72rem;
+  color: var(--muted, #444);
+  white-space: nowrap;
+}
+
 .match-score {
   margin: 0 0 0.7rem;
   font-size: 0.85rem;

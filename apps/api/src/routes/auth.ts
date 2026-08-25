@@ -58,7 +58,7 @@ export function createAuthRouter(db: Database.Database): Router {
         const { category, content } = memory as Record<string, unknown>
         if (
           typeof category !== 'string' ||
-          !['goal', 'preference'].includes(category) ||
+          !['goal', 'preference', 'constraint'].includes(category) ||
           typeof content !== 'string' ||
           content.trim() === '' ||
           content.length > 500

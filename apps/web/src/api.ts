@@ -22,6 +22,88 @@ export interface CreatorProfile {
   updatedAt: string
 }
 
+/** Structured profile details (optional fields; null = not yet provided). */
+export interface ProfileDetails {
+  creatorId: string
+  niches: string[]
+  platforms: string[]
+  audienceSize: string | null
+  collabTypes: string[]
+  availability: string | null
+  location: string | null
+  goals: string[]
+  dealbreakers: string | null
+  portfolioUrl: string | null
+  partnerMinAudience?: string | null
+  partnerMaxAudience?: string | null
+  partnerNiches?: string[]
+  minAvgViews?: string | null
+  languages?: string[]
+  preferredPlatforms?: string[]
+  compensation?: string[]
+  minBudget?: string | null
+  openToSmall?: string | null
+  avgViews?: string | null
+  updatedAt: string
+}
+
+/** Fetches structured profile details + completeness for a creator. */
+export function getProfileDetails(
+  creatorId: string,
+): Promise<{ details: ProfileDetails | null; completeness: number; total: number }> {
+  return request(`/api/creators/${encodeURIComponent(creatorId)}/profile-details`)
+}
+
+/** Updates structured profile details (partial). */
+export function updateProfileDetails(
+  creatorId: string,
+  updates: Partial<ProfileDetails>,
+): Promise<{ details: ProfileDetails; completeness: number; total: number }> {
+  return request(`/api/creators/${encodeURIComponent(creatorId)}/profile-details`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+}
+
+/** An interview question the Mind asks during onboarding. */
+export interface InterviewQuestion {
+  id: string
+  prompt: string
+  options: Array<{ value: string; label: string }> | null
+}
+
+/** Fetches the Mind's interview questions + the first unanswered one. */
+export function getInterviewQuestions(
+  creatorId: string,
+): Promise<{
+  questions: InterviewQuestion[]
+  firstUnanswered: string | null
+  completeness: number
+  total: number
+}> {
+  return request(`/api/creators/${encodeURIComponent(creatorId)}/mind/interview/questions`)
+}
+
+/** Answers one interview question; returns the next question (or null when done). */
+export function answerInterviewQuestion(
+  creatorId: string,
+  questionId: string,
+  answer: string | string[],
+): Promise<{
+  questionId: string
+  nextQuestion: InterviewQuestion | null
+  answeredIndex: number
+  details: ProfileDetails
+  completeness: number
+}> {
+  return request(`/api/creators/${encodeURIComponent(creatorId)}/mind/interview/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questionId, answer }),
+  })
+}
+
 export const MEMORY_CATEGORIES = [
   'preference',
   'goal',
@@ -77,7 +159,13 @@ export function getProfile(creatorId: string): Promise<CreatorProfile> {
 
 /** Compatibility matches for a creator (ranked, with shared terms). */
 export function getMatches(creatorId: string): Promise<{
-  matches: Array<{ creator: CreatorProfile; score: number; weightedScore?: number; sharedTerms: string[] }>
+  matches: Array<{
+    creator: CreatorProfile
+    details?: ProfileDetails
+    score: number
+    weightedScore?: number
+    sharedTerms: string[]
+  }>
   total: number
 }> {
   return request(`/api/creators/${encodeURIComponent(creatorId)}/matches`)
@@ -119,7 +207,7 @@ export async function registerAccount(input: {
   pin: string
   displayName: string
   bio?: string
-  memories?: Array<{ category: 'goal' | 'preference'; content: string }>
+  memories?: Array<{ category: 'goal' | 'preference' | 'constraint'; content: string }>
 }): Promise<AuthMe & { seededMemories: number }> {
   const res = await authRequest('/api/auth/register', input)
   if (!res.ok) {
@@ -178,8 +266,9 @@ export interface CollaborationProposal {
 
 export interface MindContext {
   creator: CreatorProfile
+  details?: ProfileDetails
   memories: CreatorMemory[]
-  matches: { matches: Array<{ creator: CreatorProfile; score: number; sharedTerms: string[] }>; total: number }
+  matches: { matches: Array<{ creator: CreatorProfile; details?: ProfileDetails; score: number; sharedTerms: string[] }>; total: number }
   collaborations: {
     collaborations: Array<{
       id: string
@@ -251,6 +340,7 @@ export function saveMindMemory(
 /** Shape of a Mind collaboration preview. */
 export interface MindCollaborationPreview {
   target: CreatorProfile
+  targetDetails?: ProfileDetails
   score: number
   sharedTerms: string[]
   proposal: string

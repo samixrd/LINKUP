@@ -4,6 +4,7 @@ import { stubMindAdapter } from '@linkup/db'
 import type { MindAdapter } from '@linkup/db'
 import { registerCreatorProfileRoutes } from './creator_profiles.js'
 import { registerCreatorMindRoutes } from './creator_mind.js'
+import { registerCreatorDetailsRoutes } from './creator_details.js'
 import { registerCreatorMemoryRoutes } from './creator_memories.js'
 import { registerCreatorCollaborationRoutes } from './creator_collaborations.js'
 import { registerCreatorGrowthRoutes } from './growth_routes.js'
@@ -23,6 +24,7 @@ export function createCreatorsRouter(
   const router = Router()
   registerCreatorProfileRoutes(router, db)
   registerCreatorMindRoutes(router, db, mindAdapter)
+  registerCreatorDetailsRoutes(router, db)
   registerCreatorMemoryRoutes(router, db)
   registerCreatorCollaborationRoutes(router, db)
   registerCreatorGrowthRoutes(router, db)

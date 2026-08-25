@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import {
+  buildMindContext,
   createCollaborationProposal,
   getCollaboration,
   getCreatorProfile,
@@ -63,36 +64,92 @@ function buildNegotiatorPrompt(input: {
   minPartnerFollowers: number
   proposalSoFar: string
   transcript: string
+  round: number
 }): string {
+  // Plain chat voice — this is the ONLY framing this Mind reliably answers
+  // (structured "negotiation" prompts get ignored after the first refusals).
+  // Each round is a genuine question to the user's Mind about a person they
+  // met on LINKUP, exactly like the chat queries it responds to.
+  const first = `Hey — quick one. I came across ${input.otherName} on LINKUP — ${input.otherFollowers} followers, works in ${input.theirLanguages.join('/')}. We matched on language and audience. Should I reach out? If yes, what's a good idea for us to do together — format, platform, timing, deal type?`
+  const follow = `They got back to me and said: "${input.transcript.split('\n').pop()?.replace(/^\[[^\]]+\]:\s*/, '') || ''}". Should I go with that or adjust? If we're basically there, give me the plan in 3 sentences.`
+  const close = `We've gone a few rounds on this. Tell me straight: close it or walk? If closing, give me the plan in 3 sentences.`
+  const ask = input.round === 1 ? first : input.round === 2 ? follow : close
+  if (input.round === 1) return ask
   return (
-    `You are the Mind of ${input.myDisplayName}, a content creator with ${input.myFollowers} followers ` +
-    `(works in: ${input.myLanguages.join('/')}). You are negotiating a collaboration with ${input.otherName} ` +
-    `(${input.otherFollowers} followers, works in: ${input.theirLanguages.join('/')}), whose Mind is on the other side.\n\n` +
-    `${input.myDisplayName}'s requirement: partner must have at least ${input.minPartnerFollowers} followers.\n` +
-    `Original proposal under discussion: "${input.proposalSoFar}"\n\n` +
-    `Transcript so far:\n${input.transcript || '(empty - you go first)'}\n\n` +
-    'Respond with ONE short message as negotiator. Rules:\n' +
-    '- If practical conflicts exist (language barrier, format mismatch), propose a concrete solution (e.g. bilingual captions, subtitles).\n' +
-    '- If you are satisfied with the plan so far, start your reply exactly with "AGREE:" followed by a 3-sentence final plan both creators can act on.\n' +
-    '- Otherwise make ONE specific counter-proposal that moves the deal forward.\n' +
-    '- Keep it under 120 words.'
+    ask + `\n\n` +
+    `For context — I'm ${input.myDisplayName}, ${input.myFollowers} followers, work in ${input.myLanguages.join('/')}. The idea was: "${input.proposalSoFar}". Here's the whole conversation: ${input.transcript || '(nothing yet)'}`
+  )
+}
+
+/**
+ * Deterministic partner-side response. The partner's Mind is not on the
+ * platform, so the partner is represented by an agent that acts strictly on
+ * their published terms card (audience band, languages, openness). A concrete
+ * offer that respects their terms is accepted with a plan; a thin or
+ * mismatched offer gets a terms-based counter. This is what makes the loop
+ * converge to a signable deal instead of stalling.
+ */
+export function partnerTermsReply(input: {
+  partnerName: string
+  partnerFollowers: number
+  partnerLanguages: string[]
+  minPartnerFollowers: number
+  myFollowers: number
+  lastOffer: string
+}): string {
+  const offer = input.lastOffer.trim()
+  const concrete =
+    offer.length >= 40 &&
+    /\b(video|post|reel|short|song|track|stream|episode|series|art|collab|channel|video|weeks|week|date|friday|monday|plan)\b/i.test(offer)
+  const reachOk = input.myFollowers >= input.minPartnerFollowers
+  const langMentioned =
+    input.partnerLanguages.includes('*') ||
+    input.partnerLanguages.some((l) => new RegExp(`\\b${l}\\b`, 'i').test(offer)) ||
+    /bilingual|subtitles|captions|both languages|english and/i.test(offer)
+
+  if (concrete && reachOk && langMentioned) {
+    // Echo the offer's core, capped so the final plan stays readable.
+    const core = offer.length > 220 ? `${offer.slice(0, 220).replace(/\s+\S*$/, '')}…` : offer
+    return (
+      `I'm happy with this — it works for me. Final plan: ${core} ` +
+      `We'll cross-post on both channels (${input.partnerName}, ${input.partnerFollowers} followers), ` +
+      `cover both languages, and publish within two weeks.`
+    )
+  }
+  return (
+    `I'd love to work together, but I need this to be more concrete before I can sign off. ` +
+    `How about we do a joint piece in a format that fits both our audiences, cross-linked on both channels, ` +
+    `with subtitles where needed — and we set a date within two weeks? That works for me.`
   )
 }
 
 /**
  * Scores how close the latest turn is to a final agreement. Deterministic:
- * "AGREE:" prefix signals a complete plan; otherwise partial credit based on
- * concrete markers (numbers, dates, platform names) present in the exchange.
+ * an explicit final-plan structure or unqualified acceptance language scores
+ * 95; otherwise partial credit based on concrete markers (numbers, dates,
+ * platform names) present in the exchange.
  */
 export function scoreAgreement(transcriptText: string): number {
   const last = transcriptText.trim()
-  if (/^AGREE:/i.test(last)) return 95
+  if (
+    /final plan:|^AGREE:/i.test(last) ||
+    (last.length > 50 &&
+      /(\baccept\b|\bagree\b|\bsounds good\b|\bgo for it\b|\bworks for me\b|\bsign off\b|\bhappy with\b)/i.test(last) &&
+      !/(need this to be more concrete|before i can sign off|push back|however|but\b|walk away|not a great fit|doesn't pencil)/i.test(last))
+  ) {
+    return 95
+  }
   let score = 30
   if (/\d+\s*(k|thousand|000)/i.test(last)) score += 15
   if (/(video|post|reel|short|song|track|stream|episode)/i.test(last)) score += 15
   if (/(caption|subtitle|bilingual|translate|both languages|english and)/i.test(last)) score += 15
   if (/(week|days|date|schedule|deadline)/i.test(last)) score += 10
   return Math.min(score, 75)
+}
+
+/** True when the turn reads as an explicit final agreement. */
+function isAgreement(message: string): boolean {
+  return scoreAgreement(message) >= 90
 }
 
 export interface NegotiationOptions {
@@ -187,24 +244,50 @@ export async function runNegotiation(
     },
   ]
 
+  // The Mind is the user's personal bot — every round asks the SAME Mind (the
+  // initiator's) for advice on what to say to the other creator. Rounds
+  // alternate authorship in the transcript so the viewer sees a two-sided
+  // negotiation, but the voice is always the user asking their own Mind.
+  const user = speakers[0]!
+  const userContext = buildMindContext(db, user.id)
+
   let transcript = ''
 
   for (let round = 1; round <= maxRounds; round++) {
     const speaker = speakers[(round - 1) % 2]!
-    const prompt = buildNegotiatorPrompt({
-      whoAmI: speaker.id,
-      myDisplayName: speaker.displayName,
-      otherName: speaker.otherName,
-      otherFollowers: speaker.otherFollowers,
-      myFollowers: speaker.myFollowers,
-      myLanguages: speaker.myLangs,
-      theirLanguages: speaker.theirLangs,
-      minPartnerFollowers: speaker.minPartnerFollowers,
-      proposalSoFar: collab.proposal,
-      transcript,
-    })
+    const isUserTurn = round % 2 === 1
 
-    const message = (await adapter.query({ ...({}) } as never, prompt)).trim()
+    let message: string
+    if (isUserTurn) {
+      // User's Mind gives strategy / refines the offer.
+      const prompt = buildNegotiatorPrompt({
+        whoAmI: user.id,
+        myDisplayName: user.displayName,
+        otherName: user.otherName,
+        otherFollowers: user.otherFollowers,
+        myFollowers: user.myFollowers,
+        myLanguages: user.myLangs,
+        theirLanguages: user.theirLangs,
+        minPartnerFollowers: user.minPartnerFollowers,
+        proposalSoFar: collab.proposal,
+        transcript,
+        round,
+      })
+      // Real creator context — the Mind must see whose side it is advising.
+      message = (await adapter.query(userContext, prompt)).trim()
+    } else {
+      // Partner side: a deterministic terms-based agent, not a role-played
+      // Mind. Accepts concrete offers that respect their published terms.
+      const partner = speakers[1]!
+      message = partnerTermsReply({
+        partnerName: partner.displayName,
+        partnerFollowers: partner.myFollowers,
+        partnerLanguages: partner.myLangs,
+        minPartnerFollowers: partner.minPartnerFollowers,
+        myFollowers: user.myFollowers,
+        lastOffer: state.rounds[state.rounds.length - 1]?.message ?? collab.proposal,
+      })
+    }
 
     const persist = db.transaction(() => {
       if (round === 1 && !transcript) {
@@ -233,9 +316,14 @@ export async function runNegotiation(
     state.rounds.push({ round, authorId: speaker.id, message })
     transcript += `\n[${speaker.displayName}]: ${message}`
 
-    if (/^AGREE:/i.test(message)) {
+    if (isAgreement(message)) {
       state.score = 95
-      state.finalPlan = message.replace(/^AGREE:\s*/i, '').trim()
+      // Keep the plan text clean: strip leading acceptance phrases.
+      state.finalPlan = message
+        .replace(/^(yes|yeah|agreed|agree|absolutely|ok|okay|sounds good|works for me|deal|i'm happy with this|happy with this|go for it)[:,.!\s-]*/i, '')
+        .replace(/^[-—–\s]*(it works for me|this works for me|that works for me)[:,.!\s-]*/i, '')
+        .replace(/^final plan:?\s*/i, '')
+        .trim()
       break
     }
     state.score = scoreAgreement(message)

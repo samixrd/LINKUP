@@ -96,48 +96,25 @@ function buildDecisionPrompt(
   targetProfile: ReturnType<typeof getCreatorProfile>,
 ): string {
   const lines: string[] = []
-  lines.push(`You are the Mind for ${singleLine(context.creator.displayName)} (${context.creator.creatorId}).`)
-  if (context.creator.bio) lines.push(`Creator bio: ${singleLine(context.creator.bio)}`)
-  if (targetProfile) {
-    lines.push(`Target creator: ${singleLine(targetProfile.displayName)} (${targetProfile.creatorId})`)
-    if (targetProfile.bio) lines.push(`Target bio: ${singleLine(targetProfile.bio)}`)
-  } else {
-    lines.push(`Target creator: ${collaboration.initiatorId === context.creator.creatorId ? collaboration.targetId : collaboration.initiatorId}`)
-  }
-  // Include matches relevant to target if available
-  const targetMatch = context.matches.matches.find(
-    (m) => m.creator.creatorId === (collaboration.initiatorId === context.creator.creatorId ? collaboration.targetId : collaboration.initiatorId),
-  )
-  if (targetMatch) {
-    lines.push(`Shared terms with target: ${targetMatch.sharedTerms.join(', ') || 'none'}`)
-  }
-  lines.push(`Collaboration id: ${collaboration.id}`)
-  lines.push(`Status: ${collaboration.status}`)
+  const targetId =
+    collaboration.initiatorId === context.creator.creatorId ? collaboration.targetId : collaboration.initiatorId
+  const targetName = targetProfile?.displayName ?? targetId
+  lines.push(`Hey — I need your read on a negotiation I'm in with ${singleLine(targetName)}.`)
+  if (context.creator.bio) lines.push(`Quick context on me: ${singleLine(context.creator.bio)}`)
+  lines.push(`Here's the back-and-forth so far:`)
   if (history.length > 0) {
-    lines.push(`Full negotiation history (ordered by seq):`)
     for (const entry of history) {
-      lines.push(`${entry.seq}. by ${entry.authorId}: "${singleLine(entry.proposal)}"`)
+      lines.push(`${entry.seq}. by ${singleLine(entry.authorId)}: "${singleLine(entry.proposal)}"`)
     }
   } else {
-    lines.push(`Negotiation history: 1. by ${collaboration.initiatorId}: "${singleLine(collaboration.proposal)}"`)
+    lines.push(`1. by ${singleLine(collaboration.initiatorId)}: "${singleLine(collaboration.proposal)}"`)
     if (collaboration.counterProposal) {
-      lines.push(`2. by ${collaboration.proposedBy}: "${singleLine(collaboration.counterProposal)}"`)
+      lines.push(`2. by ${singleLine(collaboration.proposedBy)}: "${singleLine(collaboration.counterProposal)}"`)
     }
   }
-  lines.push(`Original proposal: "${singleLine(collaboration.proposal)}"`)
-  const currentProposal = collaboration.counterProposal ?? collaboration.proposal
-  lines.push(`Current proposal: "${singleLine(currentProposal)}"`)
-  lines.push(`Current proposed by: ${collaboration.proposedBy}`)
-  lines.push(`\nTask: Analyze the collaboration and the full negotiation history above.`)
-  lines.push(`Decide whether to accept the current proposal, reject it, or propose a counter.`)
-  lines.push(`You MUST output ONLY a JSON object with this exact shape, no markdown, no extra text, no preamble:`)
-  lines.push(`{"action": "accept"|"reject"|"counter", "reasoning": "string (1-5000 chars)", "counterProposal": "string (required if action is counter)"}`)
-  lines.push(`Constraints:`)
-  lines.push(`- action must be exactly one of accept, reject, counter`)
-  lines.push(`- reasoning must be a non-empty string (trimmed, 1-5000 chars)`)
-  lines.push(`- if action is counter, counterProposal must be a non-empty string (trimmed, 1-10000 chars)`)
-  lines.push(`- if action is accept or reject, counterProposal must be omitted`)
-  lines.push(`- Output ONLY the JSON object.`)
+  lines.push(`The latest offer on the table: "${singleLine(collaboration.counterProposal ?? collaboration.proposal)}".`)
+  lines.push(`Should I accept it, reject it, or counter it? Give me your honest take in a sentence or two,`)
+  lines.push(`then reply with just a JSON object like: {"action": "accept"|"reject"|"counter", "reasoning": "your reasoning", "counterProposal": "only when action is counter"}`)
   return lines.join('\n')
 }
 
@@ -146,13 +123,22 @@ function parseDecision(raw: string): MindNegotiationDecision {
   if (trimmed === '') {
     throw new Error('invalid decision format — empty response')
   }
+  // The Mind sometimes adds a sentence before or after the JSON. Extract the
+  // first {...} block before parsing; fall back to strict full-string parse.
   let parsed: unknown
   try {
     parsed = JSON.parse(trimmed)
   } catch {
-    // Try to extract JSON object if Mind added extra whitespace or newlines but still JSON
-    // Do not try to be overly permissive; strict JSON required.
-    throw new Error('invalid decision format — not valid JSON')
+    const first = trimmed.indexOf('{')
+    const last = trimmed.lastIndexOf('}')
+    if (first === -1 || last === -1 || last <= first) {
+      throw new Error('invalid decision format — not valid JSON')
+    }
+    try {
+      parsed = JSON.parse(trimmed.slice(first, last + 1))
+    } catch {
+      throw new Error('invalid decision format — not valid JSON')
+    }
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('invalid decision format — expected JSON object')

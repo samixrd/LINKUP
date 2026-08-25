@@ -18,10 +18,13 @@ describe('database foundation', () => {
       '0010_growth_outcomes.sql',
       '0011_accounts.sql',
       '0012_open_collabs.sql',
+      '0013_profile_details.sql',
+      '0014_partner_preferences.sql',
+      '0015_creator_depth.sql',
     ])
 
     const rows = db.prepare('SELECT version FROM schema_migrations').all()
-    expect(rows).toHaveLength(12)
+    expect(rows).toHaveLength(15)
     db.close()
   })
 

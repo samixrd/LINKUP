@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import { getCreatorProfile } from './profiles.js'
 import type { CreatorProfile } from './profiles.js'
+import { getProfileDetails, type ProfileDetails } from './profile_details.js'
 
 /**
  * A potential collaboration partner and why they were matched. `score` is the
@@ -14,6 +15,8 @@ import type { CreatorProfile } from './profiles.js'
  */
 export interface CreatorMatch {
   creator: CreatorProfile
+  /** Structured profile details of the matched creator, when available. */
+  details?: ProfileDetails
   score: number
   weightedScore: number
   sharedTerms: string[]
@@ -134,6 +137,32 @@ interface ProfileRow {
   avatar_url: string
   created_at: string
   updated_at: string
+}
+
+/**
+ * Parses a JSON string column into a string array; null/invalid → empty.
+ */
+function parseJsonArray(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((x): x is string => typeof x === 'string')
+  } catch {
+    return []
+  }
+}
+
+/** The texts used for term extraction (details + dealbreakers). */
+function detailsTexts(row: { niches: string | null; platforms: string | null; goals: string | null; collab_types: string | null; dealbreakers: string | null }): string[] {
+  const texts: string[] = []
+  for (const raw of [row.niches, row.platforms, row.goals, row.collab_types]) {
+    if (raw) {
+      try { texts.push(...(JSON.parse(raw) as string[])) } catch { /* skip */ }
+    }
+  }
+  if (row.dealbreakers) texts.push(row.dealbreakers)
+  return texts
 }
 
 const PROFILE_COLUMNS = `
@@ -289,8 +318,37 @@ export function findCompatibleCreators(
     }
   }
 
+  // Also load structured profile details for richer term extraction
+  const detailsRows = db
+    .prepare('SELECT creator_id, niches, platforms, goals, collab_types, dealbreakers, partner_niches, languages, preferred_platforms, avg_views FROM creator_profile_details')
+    .all() as Array<{ creator_id: string; niches: string | null; platforms: string | null; goals: string | null; collab_types: string | null; dealbreakers: string | null; partner_niches: string | null; languages: string | null; preferred_platforms: string | null; avg_views: string | null }>
+
+  interface PrefRow {
+    partnerNiches: string[]
+    languages: string[]
+    preferredPlatforms: string[]
+    avgViews: string | null
+  }
+
+  function prefFor(row: { partner_niches: string | null; languages: string | null; preferred_platforms: string | null; avg_views: string | null }): PrefRow {
+    return {
+      partnerNiches: parseJsonArray(row.partner_niches),
+      languages: parseJsonArray(row.languages),
+      preferredPlatforms: parseJsonArray(row.preferred_platforms),
+      avgViews: row.avg_views,
+    }
+  }
+
+  const detailsByCreator = new Map<string, string[]>()
+  const prefsByCreator = new Map<string, PrefRow>()
+  for (const row of detailsRows) {
+    detailsByCreator.set(row.creator_id, detailsTexts(row))
+    prefsByCreator.set(row.creator_id, prefFor(row))
+  }
+
   const subjectMemories = memoriesByCreator.get(creatorId) ?? []
-  const subjectTerms = termsFor([subject.bio, ...subjectMemories.map((m) => m.content)])
+  const subjectDetails = detailsByCreator.get(creatorId) ?? []
+  const subjectTerms = termsFor([subject.bio, ...subjectMemories.map((m) => m.content), ...subjectDetails])
   const subjectHighSignalTerms = termsFor(
     subjectMemories.filter((m) => m.highSignal).map((m) => m.content),
   )
@@ -299,8 +357,9 @@ export function findCompatibleCreators(
   for (const profile of profiles) {
     if (profile.creator_id === creatorId) continue
     const memories = memoriesByCreator.get(profile.creator_id) ?? []
+    const details = detailsByCreator.get(profile.creator_id) ?? []
     candidateTermSets.push(
-      termsFor([profile.bio, ...memories.map((m) => m.content)]),
+      termsFor([profile.bio, ...memories.map((m) => m.content), ...details]),
     )
   }
   const weights = idfWeights(subjectTerms, candidateTermSets)
@@ -330,8 +389,46 @@ export function findCompatibleCreators(
       weightedScore += boosted
     }
 
+    // Preference-aware boost: when the candidate fits what the subject asked
+    // for (niches, languages, platforms, avg views), reward the match. Soft
+    // boosts only — never hard filters, so the demo always has matches.
+    const subjectPrefs = prefsByCreator.get(creatorId)
+    if (subjectPrefs !== undefined) {
+      const candidatePrefs = prefsByCreator.get(profile.creator_id)
+      if (candidatePrefs !== undefined) {
+        let prefHits = 0
+        if (
+          subjectPrefs.partnerNiches.length > 0 &&
+          subjectPrefs.partnerNiches.some((n) => candidatePrefs.partnerNiches.includes(n))
+        ) {
+          prefHits += 2
+        }
+        if (
+          subjectPrefs.languages.length > 0 &&
+          subjectPrefs.languages.some((l) => candidatePrefs.languages.includes(l))
+        ) {
+          prefHits += 1.5
+        }
+        if (
+          subjectPrefs.preferredPlatforms.length > 0 &&
+          subjectPrefs.preferredPlatforms.some((p) => candidatePrefs.preferredPlatforms.includes(p))
+        ) {
+          prefHits += 1
+        }
+        if (
+          subjectPrefs.avgViews !== null &&
+          candidatePrefs.avgViews !== null &&
+          subjectPrefs.avgViews === candidatePrefs.avgViews
+        ) {
+          prefHits += 0.5
+        }
+        weightedScore = round6(weightedScore * (1 + prefHits * 0.25))
+      }
+    }
+
     matches.push({
       creator: toProfile(profile),
+      details: getProfileDetails(db, profile.creator_id),
       score: shared.length,
       weightedScore: round6(weightedScore),
       sharedTerms: shared,

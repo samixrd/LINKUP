@@ -180,16 +180,14 @@ describe('mind decision service - structured parsing', () => {
     expect(input).toContain('One')
     expect(input).toContain('Two')
     expect(input).toContain('Three')
-    expect(input).toContain('hist_prompt') // collaboration id
-    expect(input).toContain('Full negotiation history')
+    expect(input).toContain('back-and-forth so far')
     // order check
     const idx1 = input.indexOf('One')
     const idx2 = input.indexOf('Two')
     const idx3 = input.indexOf('Three')
     expect(idx1 < idx2 && idx2 < idx3).toBe(true)
-    // target context
-    expect(input).toContain('Target creator')
-    expect(input).toContain('Bob')
+    // target context woven in naturally
+    expect(input).toContain('negotiation I\'m in with Bob')
     db.close()
   })
 
@@ -423,7 +421,7 @@ describe('mind decision API - read-only and isolation', () => {
     expect(input).toContain('One')
     expect(input).toContain('Two')
     expect(input).toContain('Three')
-    expect(input).toContain('Full negotiation history')
+    expect(input).toContain('back-and-forth so far')
     histDb.close()
   })
 })

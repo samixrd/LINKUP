@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
 import { getCreatorProfile } from './profiles.js'
+import { getProfileDetails, type ProfileDetails } from './profile_details.js'
 import { listCreatorMemories, searchCreatorMemories } from './memories.js'
 import { findCompatibleCreators } from './matching.js'
 import { listCollaborationsForCreator } from './collaborations.js'
@@ -19,6 +20,8 @@ import type { CollaborationProposal } from './collaboration_proposals.js'
  */
 export interface MindContext {
   creator: CreatorProfile
+  /** Structured profile details (niche, platforms, audience, …) or undefined. */
+  details?: ProfileDetails
   memories: CreatorMemory[]
   matches: CreatorMatchList
   collaborations: CollaborationList
@@ -121,6 +124,7 @@ export function buildMindContext(
 
   const context: MindContext = {
     creator,
+    details: getProfileDetails(db, creatorId) ?? undefined,
     memories,
     matches,
     collaborations,
