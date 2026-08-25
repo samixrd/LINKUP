@@ -31,7 +31,7 @@ import { isNonEmptyString } from './creators/shared.js'
  */
 
 /** Maps an interview audience-size bucket to a follower number for the terms card. */
-function followersFromAudienceSize(size: string | undefined): number {
+function followersFromAudienceSize(size: string | null | undefined): number {
   switch (size) {
     case 'Just starting':
       return 100
@@ -49,7 +49,7 @@ function followersFromAudienceSize(size: string | undefined): number {
 }
 
 /** Maps an interview partner-minimum bucket to a follower threshold. */
-function minPartnerFromAudienceSize(size: string | undefined): number {
+function minPartnerFromAudienceSize(size: string | null | undefined): number {
   switch (size) {
     case '~1k':
       return 1_000

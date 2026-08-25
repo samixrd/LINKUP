@@ -54,14 +54,12 @@ export interface NegotiationState {
 }
 
 function buildNegotiatorPrompt(input: {
-  whoAmI: string
   myDisplayName: string
   otherName: string
   otherFollowers: number
   myFollowers: number
   myLanguages: string[]
   theirLanguages: string[]
-  minPartnerFollowers: number
   proposalSoFar: string
   transcript: string
   round: number
@@ -261,14 +259,12 @@ export async function runNegotiation(
     if (isUserTurn) {
       // User's Mind gives strategy / refines the offer.
       const prompt = buildNegotiatorPrompt({
-        whoAmI: user.id,
         myDisplayName: user.displayName,
         otherName: user.otherName,
         otherFollowers: user.otherFollowers,
         myFollowers: user.myFollowers,
         myLanguages: user.myLangs,
         theirLanguages: user.theirLangs,
-        minPartnerFollowers: user.minPartnerFollowers,
         proposalSoFar: collab.proposal,
         transcript,
         round,

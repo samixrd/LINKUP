@@ -31,7 +31,6 @@ const MAX_ALIAS_SAFE_LENGTH = 32
  */
 export interface MindsMessagingClient {
   ensureConversation(alias: string, mindId: string): Promise<Conversation>
-  getLatestHistoryFingerprint(alias: string, signal?: AbortSignal): Promise<string | undefined>
   getHistory(alias: string, opts?: { limit?: number; signal?: AbortSignal }): Promise<Array<{ fingerprint?: string | null; messageText?: string | null }>>
   sendMessage(body: SendMessageBody): Promise<Record<string, unknown>>
   waitForReply(opts: WaitForReplyOptions): Promise<WaitForReplyOutcome>
@@ -122,7 +121,6 @@ export function buildMindPrompt(context: MindContext, input: string, firstMessag
   const profile = context.creator
   if (!profile) return trimmedInput
   const d = context.details
-  const first = profile.displayName.split(' ')[0] ?? profile.displayName
 
   if (firstMessage) {
     // First message: natural intro, profile woven in conversationally.

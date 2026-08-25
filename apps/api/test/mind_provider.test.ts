@@ -30,12 +30,10 @@ import { loadConfig } from '../src/config.js'
 
 class FakeMindsClient implements MindsMessagingClient {
   ensureConversationCalls: Array<{ alias: string; mindId: string }> = []
-  fingerprintsRequested: string[] = []
   sentMessages: Array<{ alias: string; messageText: string }> = []
   waitForReplyCalls: WaitForReplyOptions[] = []
 
   sendError: Error | null = null
-  fingerprint: string | undefined = 'fp-before'
   history: Array<{ fingerprint?: string | null; messageText?: string | null }> = []
   waitOutcome: WaitForReplyOutcome = {
     reply: { fingerprint: 'fp-reply', messageText: 'Hello from the Mind' },
@@ -47,12 +45,7 @@ class FakeMindsClient implements MindsMessagingClient {
     return { conversationId: 'conv-1', alias, mindId }
   }
 
-  async getLatestHistoryFingerprint(alias: string): Promise<string | undefined> {
-    this.fingerprintsRequested.push(alias)
-    return this.fingerprint
-  }
-
-  async getHistory(alias: string): Promise<Array<{ fingerprint?: string | null; messageText?: string | null }>> {
+  async getHistory(_alias: string): Promise<Array<{ fingerprint?: string | null; messageText?: string | null }>> {
     return this.history
   }
 

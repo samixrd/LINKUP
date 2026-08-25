@@ -155,7 +155,7 @@ async function draftCounterProposal(
 ): Promise<string> {
   const otherId =
     collaboration.initiatorId === context.creator.creatorId ? collaboration.targetId : collaboration.initiatorId
-  const otherName = getOtherDisplayName(context, collaboration, otherId)
+  const otherName = getOtherDisplayName(context, otherId)
   const currentProposal = collaboration.counterProposal ?? collaboration.proposal
   // Build ordered history from MindContext (which already aggregates via repository)
   let historyLines: string[] = []
@@ -195,7 +195,6 @@ async function draftCounterProposal(
 /** Resolves a creator's display name from the context's matches when possible. */
 function getOtherDisplayName(
   context: MindContext,
-  collaboration: Collaboration,
   otherId: string,
 ): string {
   const match = context.matches.matches.find((m) => m.creator.creatorId === otherId)
