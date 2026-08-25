@@ -115,6 +115,11 @@ Copy `.env.example` to `.env` to override defaults:
   out (default `120000`, must be a positive integer; invalid values fail fast
   at startup with `MINDS_REPLY_TIMEOUT_MS` named in the error and without
   echoing any secret).
+- `GROQ_API_KEY` / `GROQ_MODEL` — optional **Groq fallback Mind**. When Minds
+  credit is low, the Mind is slow, or Minds is unconfigured, the app answers
+  from Groq's chat completions (`openai/gpt-oss-120b` by default). Resolution:
+  Minds + Groq → Minds first, Groq on any failure (Minds wait capped at 60s);
+  Groq only → direct; neither → stub `503`.
 
 All Minds config is loaded via `apps/api/src/config.ts` (`loadConfig` + `parsePositiveInteger`) and validated before the server listens. `apps/api/src/runtime.ts` (`assertSupportedNodeVersion`) fails fast if `process.versions.node` < `22.0.0`.
 
