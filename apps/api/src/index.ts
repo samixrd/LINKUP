@@ -16,8 +16,9 @@ function main(): void {
     console.log(`[db] applied migrations: ${applied.join(', ')}`)
   }
 
-  // Real Minds provider only when env config is present; stub otherwise.
-  const mindAdapter = resolveMindAdapter(config.minds)
+  // Real Minds provider (with optional Groq fallback) when env config is
+  // present; stub otherwise.
+  const mindAdapter = resolveMindAdapter(config.minds, config.groq)
 
   const app = createApp({ db, mindAdapter })
   const server = app.listen(config.port, () => {

@@ -17,13 +17,16 @@ import {
   createFollowUp,
   migrate,
   stubMindAdapter,
+  type MindAdapter,
 } from '@linkup/db'
 import { createApp } from '../src/app.js'
 import {
   aliasForCreator,
+  buildGroqSystemPrompt,
   buildMindPrompt,
   createMindsProviderAdapter,
   resolveMindAdapter,
+  withGroqFallback,
   type MindsMessagingClient,
 } from '../src/services/mind_provider.js'
 import { loadConfig } from '../src/config.js'
@@ -317,43 +320,86 @@ describe('conversation alias', () => {
 })
 
 describe('adapter resolution', () => {
-  it('returns the stub when Minds env config is incomplete', () => {
-    expect(resolveMindAdapter(loadConfig({}).minds)).toBe(stubMindAdapter)
+  it('returns the stub when Minds and Groq env config are both absent', () => {
+    const cfg = loadConfig({})
+    expect(resolveMindAdapter(cfg.minds, cfg.groq)).toBe(stubMindAdapter)
     expect(
       resolveMindAdapter(
         loadConfig({ MINDS_BUILDER_API_KEY: 'sk-test', MINDS_MIND_ID: '' }).minds,
+        loadConfig({ MINDS_BUILDER_API_KEY: 'sk-test', MINDS_MIND_ID: '' }).groq,
       ),
     ).toBe(stubMindAdapter)
     expect(
       resolveMindAdapter(
         loadConfig({ MINDS_BUILDER_API_KEY: '', MINDS_MIND_ID: 'mind-1' }).minds,
+        loadConfig({ MINDS_BUILDER_API_KEY: '', MINDS_MIND_ID: 'mind-1' }).groq,
       ),
     ).toBe(stubMindAdapter)
   })
 
-  it('returns a real provider adapter when config is complete', () => {
-    const config = loadConfig({ MINDS_BUILDER_API_KEY: 'sk-test', MINDS_MIND_ID: 'mind-1' })
-    const adapter = resolveMindAdapter(config.minds)
+  it('returns a Groq-only adapter when only GROQ_API_KEY is configured', () => {
+    const cfg = loadConfig({ GROQ_API_KEY: 'gsk-test' })
+    const adapter = resolveMindAdapter(cfg.minds, cfg.groq)
+    expect(adapter).not.toBe(stubMindAdapter)
+    expect(typeof adapter.query).toBe('function')
+  })
+
+  it('returns a real Minds provider adapter when Minds config is complete', () => {
+    const cfg = loadConfig({ MINDS_BUILDER_API_KEY: 'sk-test', MINDS_MIND_ID: 'mind-1' })
+    const adapter = resolveMindAdapter(cfg.minds, cfg.groq)
     expect(adapter).not.toBe(stubMindAdapter)
     // Construction makes no network calls; only query() hits the provider.
     expect(typeof adapter.query).toBe('function')
   })
 
-  it('loadConfig parses Minds env vars and default timeout', () => {
+  it('loadConfig parses Minds env vars, default timeout, and Groq config', () => {
     const config = loadConfig({
       MINDS_BUILDER_API_KEY: '  sk-test  ',
       MINDS_MIND_ID: ' mind-1 ',
       MINDS_REPLY_TIMEOUT_MS: '5000',
     })
     expect(config.minds).toEqual({ builderApiKey: 'sk-test', mindId: 'mind-1', replyTimeoutMs: 5000 })
+    expect(config.groq).toEqual({ apiKey: '', model: 'openai/gpt-oss-120b' })
 
     const defaults = loadConfig({})
     expect(defaults.minds).toEqual({ builderApiKey: '', mindId: '', replyTimeoutMs: 120_000 })
+    expect(defaults.groq).toEqual({ apiKey: '', model: 'openai/gpt-oss-120b' })
+  })
+
+  it('loadConfig reads GROQ_API_KEY and custom GROQ_MODEL', () => {
+    const config = loadConfig({ GROQ_API_KEY: 'gsk-test-key', GROQ_MODEL: 'mixtral-8x7b-32768' })
+    expect(config.groq).toEqual({ apiKey: 'gsk-test-key', model: 'mixtral-8x7b-32768' })
   })
 
   it('rejects an invalid reply timeout', () => {
     expect(() => loadConfig({ MINDS_REPLY_TIMEOUT_MS: 'abc' })).toThrow(/MINDS_REPLY_TIMEOUT_MS/)
     expect(() => loadConfig({ MINDS_REPLY_TIMEOUT_MS: '-1' })).toThrow(/MINDS_REPLY_TIMEOUT_MS/)
+  })
+
+  it('withGroqFallback calls the fallback when the primary throws', async () => {
+    const primary: MindAdapter = { async query() { throw new Error('primary failed') } }
+    const fallback: MindAdapter = { async query() { return 'fallback reply' } }
+    const wrapped = withGroqFallback(primary, fallback)
+    const result = await wrapped.query({} as never, 'test')
+    expect(result).toBe('fallback reply')
+  })
+
+  it('withGroqFallback surfaces the original error when both fail', async () => {
+    const primary: MindAdapter = { async query() { throw new Error('primary failed') } }
+    const fallback: MindAdapter = { async query() { throw new Error('fallback failed') } }
+    const wrapped = withGroqFallback(primary, fallback)
+    await expect(wrapped.query({} as never, 'test')).rejects.toThrow('primary failed')
+  })
+
+  it('buildGroqSystemPrompt includes profile details and memories', () => {
+    const db = seedDb()
+    const context = buildMindContext(db, 'prov_a')
+    const prompt = buildGroqSystemPrompt(context)
+    expect(prompt).toContain('Mind for Provider Ada')
+    expect(prompt).toContain('Prefers async collaboration.')
+    expect(prompt).not.toContain('Secret other memory.')
+    expect(prompt).toContain('Loves pottery')
+    db.close()
   })
 })
 

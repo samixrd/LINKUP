@@ -9,7 +9,7 @@ import {
 } from '@animocabrands/minds-client-lib'
 import type { MindAdapter, MindContext } from '@linkup/db'
 import { stubMindAdapter } from '@linkup/db'
-import { DEFAULT_MINDS_REPLY_TIMEOUT_MS, type MindsConfig } from '../config.js'
+import { DEFAULT_MINDS_REPLY_TIMEOUT_MS, type GroqConfig, type MindsConfig } from '../config.js'
 
 /**
  * Real Minds provider adapter. Sends the structured MindContext (serialized
@@ -69,16 +69,151 @@ export function createMindsProviderAdapter(options: MindsProviderOptions): MindA
 }
 
 /**
- * Resolves the adapter for production: the real provider when Minds config
- * is fully present, otherwise the stub (safe default, 503 on query).
+ * Groq fallback adapter. Talks to Groq's OpenAI-compatible chat completions
+ * API as a "virtual Mind": the MindContext (profile, details, memories,
+ * matches) becomes the system prompt, and the user's input is the message.
+ * Used when the real Minds provider is out of credit, slow, or unconfigured.
  */
-export function resolveMindAdapter(minds: MindsConfig): MindAdapter {
-  if (!minds.builderApiKey || !minds.mindId) return stubMindAdapter
-  return createMindsProviderAdapter({
-    builderApiKey: minds.builderApiKey,
-    mindId: minds.mindId,
-    timeoutMs: minds.replyTimeoutMs,
-  })
+export function createGroqFallbackAdapter(groq: GroqConfig): MindAdapter {
+  return {
+    async query(context: MindContext, input: string): Promise<string> {
+      const system = buildGroqSystemPrompt(context)
+      const reply = await groqChatCompletions(groq, system, input.trim())
+      const text = reply.trim()
+      if (!text) throw new Error('Groq fallback returned an empty reply')
+      return text
+    },
+  }
+}
+
+/** Builds the system prompt for the Groq virtual Mind from the MindContext. */
+export function buildGroqSystemPrompt(context: MindContext): string {
+  const profile = context.creator
+  const d = context.details
+  const lines: string[] = []
+  lines.push(
+    `You are the Mind for ${profile.displayName} on LINKUP, a creator collaboration platform.`,
+  )
+  lines.push(
+    `You are ${profile.displayName}'s personal AI agent: you know their profile, memories, matches and collaborations, and you give honest, direct, practical advice on collab strategy, fit, proposals and negotiations.`,
+  )
+  lines.push(`Never role-play as ${profile.displayName} or as any other creator — you are their agent, not them.`)
+  if (profile.bio) lines.push(`Creator bio: ${profile.bio}`)
+  if (d) {
+    const facts: string[] = []
+    if (d.niches.length > 0) facts.push(`makes ${d.niches.join(' and ')} content`)
+    if (d.platforms.length > 0) facts.push(`on ${d.platforms.join(' and ')}`)
+    if (d.audienceSize) facts.push(`audience ${d.audienceSize}`)
+    if (d.avgViews) facts.push(`${d.avgViews} avg views`)
+    if (d.languages && d.languages.length > 0) facts.push(`works in ${d.languages.join(' & ')}`)
+    if (d.location) facts.push(`based in ${d.location}`)
+    if (d.availability) facts.push(`${d.availability} free for collabs`)
+    if (d.goals.length > 0) facts.push(`main goal: ${d.goals.join(', ')}`)
+    if (d.compensation && d.compensation.length > 0) facts.push(`deal types: ${d.compensation.join(', ')}`)
+    if (facts.length > 0) lines.push(`Creator details: ${facts.join('; ')}`)
+  }
+  const memories = context.memories
+    .filter((m) => m.category !== 'interaction')
+    .slice(-5)
+    .map((m) => m.content)
+  if (memories.length > 0) {
+    lines.push(`Notes from ${profile.displayName}: ${memories.join(' | ')}`)
+  }
+  if (context.matches.matches.length > 0) {
+    const names = context.matches.matches
+      .slice(0, 5)
+      .map((m) => `${m.creator.displayName} (${m.score})`)
+      .join(', ')
+    lines.push(`LINKUP matches: ${names}`)
+  }
+  lines.push('Reply in plain, warm, honest language, as a helpful personal assistant.')
+  return lines.join('\n')
+}
+
+/** Calls Groq chat completions with a bounded timeout and no secret leaking. */
+export async function groqChatCompletions(
+  groq: GroqConfig,
+  system: string,
+  user: string,
+): Promise<string> {
+  let res: Response
+  try {
+    res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${groq.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: groq.model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        temperature: 0.7,
+        max_tokens: 800,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    })
+  } catch (err) {
+    throw new Error(`Groq fallback request failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  if (!res.ok) {
+    throw new Error(`Groq fallback request failed (status ${res.status})`)
+  }
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  const content = data.choices?.[0]?.message?.content
+  if (typeof content !== 'string') {
+    throw new Error('Groq fallback returned no content')
+  }
+  return content
+}
+
+/**
+ * Wraps the primary adapter with a Groq fallback: any provider failure
+ * (out of credit, timeout, refused reply) is answered by the fallback so the
+ * demo never stalls. If the fallback also fails, the ORIGINAL error surfaces.
+ */
+export function withGroqFallback(primary: MindAdapter, fallback: MindAdapter): MindAdapter {
+  return {
+    async query(context: MindContext, input: string): Promise<string> {
+      try {
+        return await primary.query(context, input)
+      } catch (primaryErr) {
+        try {
+          return await fallback.query(context, input)
+        } catch {
+          throw primaryErr
+        }
+      }
+    },
+  }
+}
+
+/**
+ * Resolves the adapter for production:
+ * 1. Real Minds provider when Minds config is present (wrapped with the Groq
+ *    fallback when a Groq key exists — Minds credit runs out fast).
+ * 2. Groq-only virtual Mind when Minds is absent but Groq is configured.
+ * 3. The stub otherwise (safe default, 503 on query).
+ */
+export function resolveMindAdapter(minds: MindsConfig, groq: GroqConfig): MindAdapter {
+  const groqAdapter = groq.apiKey !== '' ? createGroqFallbackAdapter(groq) : undefined
+  if (minds.builderApiKey && minds.mindId) {
+    const primary = createMindsProviderAdapter({
+      builderApiKey: minds.builderApiKey,
+      mindId: minds.mindId,
+      // When a Groq fallback exists, cap the Minds wait so a slow/refusing
+      // Mind hands over to the fallback instead of stalling the demo.
+      timeoutMs:
+        groqAdapter !== undefined ? Math.min(minds.replyTimeoutMs, 60_000) : minds.replyTimeoutMs,
+    })
+    return groqAdapter !== undefined ? withGroqFallback(primary, groqAdapter) : primary
+  }
+  if (groqAdapter !== undefined) return groqAdapter
+  return stubMindAdapter
 }
 
 /**

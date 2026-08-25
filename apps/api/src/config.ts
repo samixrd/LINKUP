@@ -13,6 +13,12 @@ export const MINDS_MIND_ID_ENV = 'MINDS_MIND_ID'
 export const MINDS_REPLY_TIMEOUT_MS_ENV = 'MINDS_REPLY_TIMEOUT_MS'
 export const DEFAULT_MINDS_REPLY_TIMEOUT_MS = 120_000
 
+/** Groq API key — used as the fallback Mind when Minds credit is low/absent. */
+export const GROQ_API_KEY_ENV = 'GROQ_API_KEY'
+/** Groq model id (OpenAI-compatible chat completions). */
+export const GROQ_MODEL_ENV = 'GROQ_MODEL'
+export const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b'
+
 export interface MindsConfig {
   /** Trimmed value of MINDS_BUILDER_API_KEY; empty string when not set. */
   builderApiKey: string
@@ -22,11 +28,19 @@ export interface MindsConfig {
   replyTimeoutMs: number
 }
 
+export interface GroqConfig {
+  /** Trimmed value of GROQ_API_KEY; empty string when not set. */
+  apiKey: string
+  /** Model id for chat completions (default llama-3.3-70b-versatile). */
+  model: string
+}
+
 export interface ApiConfig {
   port: number
   nodeEnv: NodeEnvironment
   databasePath: string
   minds: MindsConfig
+  groq: GroqConfig
 }
 
 /**
@@ -68,6 +82,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       builderApiKey: env[MINDS_BUILDER_API_KEY_ENV]?.trim() ?? '',
       mindId: env[MINDS_MIND_ID_ENV]?.trim() ?? '',
       replyTimeoutMs,
+    },
+    groq: {
+      apiKey: env[GROQ_API_KEY_ENV]?.trim() ?? '',
+      model: env[GROQ_MODEL_ENV]?.trim() || DEFAULT_GROQ_MODEL,
     },
   }
 }
