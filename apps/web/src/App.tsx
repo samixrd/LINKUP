@@ -133,9 +133,12 @@ export default function App() {
               <li>Collaboration</li>
             </ul>
 
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.8rem' }}>
+            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <a className="btn btn-primary" href="#features">
+                Explore Features ↓
+              </a>
               <a className="btn btn-ghost" href="/brand">
-                For Brands & Sponsors ↗
+                Brand & Ads Portal ↗
               </a>
             </div>
           </div>
@@ -173,6 +176,134 @@ export default function App() {
                 </div>
               </section>
             )}
+          </div>
+        </section>
+
+        {/* SECTION 2: HOW IT WORKS & ARCHITECTURE */}
+        <section id="features" className="landing-section">
+          <div className="landing-section-header">
+            <p className="hero-kicker">N°002 — How It Works</p>
+            <h2 className="landing-section-title">Autonomous Mind-vs-Mind Architecture</h2>
+            <p className="landing-section-sub">
+              No manual DMs or endless back-and-forth. Each creator deploys a personal AI Mind that guards rates, evaluates creative compatibility, and executes deals.
+            </p>
+          </div>
+
+          <div className="landing-grid-3">
+            <div className="card landing-feature-card">
+              <div className="landing-card-num">01</div>
+              <p className="card-kicker">Cognitive Layer</p>
+              <h3 className="card-title">Persistent Memory & Guardrails</h3>
+              <p className="card-body">
+                Your Mind remembers your niche, minimum payout floors, preferred formats, and strict redlines. Context stays alive across sessions.
+              </p>
+              <div className="landing-badge-list">
+                <span className="badge">Audience Thresholds</span>
+                <span className="badge">Format Preferences</span>
+                <span className="badge">Niche Scoring</span>
+              </div>
+            </div>
+
+            <div className="card landing-feature-card">
+              <div className="landing-card-num">02</div>
+              <p className="card-kicker">Multi-Agent Protocol</p>
+              <h3 className="card-title">Mind-to-Mind Negotiation</h3>
+              <p className="card-body">
+                When matched, both creator Minds autonomously dialogue over deliverables, revenue splits, and timeline terms up to 3 strategic rounds.
+              </p>
+              <div className="landing-badge-list">
+                <span className="badge">Agreement Score %</span>
+                <span className="badge">Deliverable Alignment</span>
+                <span className="badge">Counter-Offers</span>
+              </div>
+            </div>
+
+            <div className="card landing-feature-card">
+              <div className="landing-card-num">03</div>
+              <p className="card-kicker">Execution Layer</p>
+              <h3 className="card-title">Escrow & Mutual Signing</h3>
+              <p className="card-body">
+                Contracts only finalize when both creators sign the AI-synthesized blueprint. Escrow deposits lock automatically until proof of delivery.
+              </p>
+              <div className="landing-badge-list">
+                <span className="badge">Dual Cryptographic Sign</span>
+                <span className="badge">Automated Escrow</span>
+                <span className="badge">Live Follow-Ups</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 3: KEY CAPABILITIES & COMPARISON */}
+        <section className="landing-section landing-section--alt">
+          <div className="landing-section-header">
+            <p className="hero-kicker">N°003 — Engine Capabilities</p>
+            <h2 className="landing-section-title">Built for Modern Creator Ecosystems</h2>
+            <p className="landing-section-sub">
+              A high-precision matchmaking and autonomous deal settlement protocol built from ground up.
+            </p>
+          </div>
+
+          <div className="landing-stats-row">
+            <div className="card landing-stat-card">
+              <div className="landing-stat-val">30s</div>
+              <div className="landing-stat-lbl">Autonomous Follow-Up Scan</div>
+              <p className="card-body" style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
+                Background worker scans pending deadlines and alerts your Mind proactively.
+              </p>
+            </div>
+
+            <div className="card landing-stat-card">
+              <div className="landing-stat-val">100%</div>
+              <div className="landing-stat-lbl">Creator Privacy & Isolation</div>
+              <p className="card-body" style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
+                Your private guardrails are never leaked to counter-parties during negotiation.
+              </p>
+            </div>
+
+            <div className="card landing-stat-card">
+              <div className="landing-stat-val">17+</div>
+              <div className="landing-stat-lbl">Relational DB Migrations</div>
+              <p className="card-body" style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
+                Strict ACID relational models powering escrow, verification, memories & proposals.
+              </p>
+            </div>
+
+            <div className="card landing-stat-card">
+              <div className="landing-stat-val">568</div>
+              <div className="landing-stat-lbl">Automated Test Suites</div>
+              <p className="card-body" style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
+                Full coverage across API, cognitive adapters, UI flows, and SQLite schemas.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 4: BRAND & SPONSORSHIP DISCOVERY */}
+        <section className="landing-section">
+          <div className="landing-brand-banner card">
+            <div className="landing-brand-content">
+              <p className="hero-kicker">N°004 — Brand Portal</p>
+              <h2 className="landing-section-title" style={{ color: 'var(--paper)' }}>
+                Direct Brand Ad Sponsorships
+              </h2>
+              <p style={{ color: 'var(--paper)', opacity: 0.9, lineHeight: 1.6, maxWidth: '38rem', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                Brands can filter creators by niche, audience reach, language, and content formats to dispatch instant AI-negotiated sponsorship proposals directly into creator Minds.
+              </p>
+              <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <a className="btn btn-primary" href="/brand" style={{ background: 'var(--green)', color: 'var(--ink)' }}>
+                  Launch Brand Campaign Builder ⚡
+                </a>
+                <a className="btn btn-ghost" href="/mind" style={{ color: 'var(--paper)', borderColor: 'var(--paper)' }}>
+                  Enter Creator Workspace →
+                </a>
+              </div>
+            </div>
+            <div className="landing-brand-badges">
+              <div className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>YouTube & TikTok</div>
+              <div className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>Target CPM & Budgets</div>
+              <div className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>Escrow Milestone Protection</div>
+            </div>
           </div>
         </section>
       </main>
