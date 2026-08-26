@@ -147,6 +147,19 @@ export default function EscrowModal({
           <p className="escrow-loading">Checking escrow state…</p>
         ) : (
           <div className="escrow-body">
+            {/* Future Feature Roadmap Badge */}
+            <div style={{ background: 'var(--yellow)', border: '2px solid var(--ink)', padding: '0.8rem 1rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.8rem', boxShadow: '3px 3px 0 var(--ink)' }}>
+              <span style={{ fontSize: '1.4rem' }}>🚧</span>
+              <div>
+                <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', color: 'var(--ink)' }}>
+                  Service Not Available — Future Roadmap
+                </strong>
+                <span style={{ fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
+                  Automated smart contract and on-chain escrow release is currently in active development for Phase 2.
+                </span>
+              </div>
+            </div>
+
             {/* Escrow Status Banner */}
             <div className={`escrow-status-box escrow-status--${escrow?.status ?? 'locked'}`}>
               <div className="escrow-badge-row">
