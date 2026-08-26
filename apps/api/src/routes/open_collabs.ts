@@ -6,6 +6,7 @@ import {
   getCreatorProfile,
   getOpenCollab,
   getProfileDetails,
+  listBrandOpenCreators,
   listOpenCollabs,
   findThresholdMatches,
   setOpenCollab,
