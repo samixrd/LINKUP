@@ -1,4 +1,12 @@
-/** Shape of the API health check response. */
+export const LIVE_API_URL = 'https://linkup-api-e2qb.onrender.com'
+
+export function getApiBase(): string {
+  if (typeof __API_BASE__ !== 'undefined' && __API_BASE__) return __API_BASE__
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return LIVE_API_URL
+  }
+  return ''
+}
 export interface HealthStatus {
   status: 'ok' | 'degraded'
   service: string
@@ -138,9 +146,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  // __API_BASE__ is '' in dev (Vite proxy handles /api → localhost:3001).
-  // In production it becomes the Railway URL set via VITE_API_URL.
-  const base = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+  const base = getApiBase()
   const res = await fetch(`${base}${path}`, init)
   if (!res.ok) {
     let message = `request failed (${res.status})`
@@ -188,6 +194,16 @@ export function createProfile(input: {
   })
 }
 
+
+/** Sets or clears a creator's avatar. */
+export function setAvatar(creatorId: string, avatarUrl: string): Promise<CreatorProfile> {
+  return request(`/api/creators/${encodeURIComponent(creatorId)}/avatar`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ avatarUrl }),
+  })
+}
+
 // --- Passcode auth -----------------------------------------------------
 
 export interface AuthMe {
@@ -197,7 +213,7 @@ export interface AuthMe {
 }
 
 async function authRequest(path: string, input: unknown): Promise<Response> {
-  const base = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+  const base = getApiBase()
   return fetch(`${base}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -234,7 +250,7 @@ export async function logoutAccount(): Promise<void> {
 }
 
 export async function fetchMe(): Promise<AuthMe | null> {
-  const base = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+  const base = getApiBase()
   const res = await fetch(`${base}/api/auth/me`)
   if (res.status === 401) return null
   if (!res.ok) return null
