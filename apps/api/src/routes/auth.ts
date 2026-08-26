@@ -53,7 +53,20 @@ export function createAuthRouter(db: Database.Database): Router {
         ? (body as { memories: Array<{ category?: unknown; content?: unknown }> }).memories
         : []
       let seeded = 0
-      for (const memory of memories.slice(0, 12)) {
+
+      let niches: string[] = []
+      let platforms: string[] = []
+      let audienceSize: string = '~1k'
+
+      let languages: string[] = ['en']
+      let format: string = 'Viral Short-Form'
+      let freq: string = '2-3 Times a Week'
+      let goals: string[] = []
+      let collabStyle: string = 'Pro'
+      let dealPolicy: string = 'Hybrid'
+      let partnerRule: string = 'open'
+
+      for (const memory of memories.slice(0, 16)) {
         if (typeof memory !== 'object' || memory === null) continue
         const { category, content } = memory as Record<string, unknown>
         if (
@@ -74,6 +87,104 @@ export function createAuthRouter(db: Database.Database): Router {
           content.trim(),
         )
         seeded += 1
+
+        const text = content.trim()
+        if (text.startsWith('Primary creative niche: ')) {
+          niches = text.replace('Primary creative niche: ', '').split(',').map((s) => s.trim())
+        } else if (text.startsWith('Active distribution platforms: ')) {
+          platforms = (text.replace('Active distribution platforms: ', '').split('(')[0] ?? '').split(',').map((s) => s.trim())
+        } else if (text.startsWith('Current creator audience size: ')) {
+          audienceSize = text.replace('Current creator audience size: ', '').trim()
+        } else if (text.startsWith('Languages created in: ')) {
+          languages = text.replace('Languages created in: ', '').split(',').map((s) => s.trim().split(' ')[0] ?? s.trim())
+        } else if (text.startsWith('Signature content format: ')) {
+          format = text.replace('Signature content format: ', '').trim()
+        } else if (text.startsWith('Production & posting cadence: ')) {
+          freq = text.replace('Production & posting cadence: ', '').trim()
+        } else if (text.startsWith('My primary goal: ') || category === 'goal') {
+          goals.push(text.replace('My primary goal: ', '').trim())
+        } else if (text.startsWith('Collaboration style: ')) {
+          collabStyle = text.replace('Collaboration style: ', '').trim()
+        } else if (text.startsWith('Deal terms policy: ')) {
+          dealPolicy = text.replace('Deal terms policy: ', '').trim()
+        } else if (text.startsWith('Partner policy: ')) {
+          partnerRule = text.replace('Partner policy: ', '').trim()
+        }
+      }
+
+      // Automatically populate creator_profile_details from 12 steps
+      try {
+        db.prepare(`
+          INSERT INTO creator_profile_details (
+            creator_id, niches, platforms, audience_size, collab_types,
+            availability, location, goals, dealbreakers, languages,
+            partner_min_audience, open_to_small, compensation, content_format, posting_frequency
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(creator_id) DO UPDATE SET
+            niches = excluded.niches,
+            platforms = excluded.platforms,
+            audience_size = excluded.audience_size,
+            languages = excluded.languages,
+            goals = excluded.goals,
+            dealbreakers = excluded.dealbreakers,
+            content_format = excluded.content_format,
+            posting_frequency = excluded.posting_frequency
+        `).run(
+          account.creatorId,
+          JSON.stringify(niches.length > 0 ? niches : ['Creative Media']),
+          JSON.stringify(platforms.length > 0 ? platforms : ['YouTube']),
+          audienceSize,
+          JSON.stringify(['co-create', 'cross-promote']),
+          freq || '~5 hrs/week',
+          'Global',
+          JSON.stringify(goals.length > 0 ? goals : ['Audience growth and collaborative creative impact']),
+          dealPolicy || 'Fair terms and quality deliverables',
+          JSON.stringify(languages.length > 0 ? languages : ['English']),
+          partnerRule.includes('Peer') ? '~1k' : 'any',
+          partnerRule.includes('Verified') ? 'no' : 'yes',
+          JSON.stringify(['paid', 'barter', 'revenue-share']),
+          JSON.stringify([format]),
+          freq,
+        )
+
+        // Automatically set initial Go Open card
+        const approxFollowers =
+          audienceSize.includes('1M') ? 1_000_000 :
+          audienceSize.includes('250K') ? 250_000 :
+          audienceSize.includes('50K') ? 50_000 :
+          audienceSize.includes('10K') ? 10_000 :
+          audienceSize.includes('1K') ? 1_000 : 500
+
+        db.prepare(`
+          INSERT INTO open_collabs (
+            creator_id, open_to_collab, my_followers, min_partner_followers,
+            languages, topics, platform, niche, min_rate, collab_types,
+            open_for_brands, brand_min_rate, guardrails
+          )
+          VALUES (?, 1, ?, 0, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+          ON CONFLICT(creator_id) DO UPDATE SET
+            open_to_collab = 1,
+            my_followers = excluded.my_followers,
+            languages = excluded.languages,
+            topics = excluded.topics,
+            platform = excluded.platform,
+            niche = excluded.niche,
+            guardrails = excluded.guardrails
+        `).run(
+          account.creatorId,
+          approxFollowers,
+          languages.join(','),
+          (niches.length > 0 ? niches : ['Collab']).join(','),
+          platforms[0] || 'YouTube',
+          niches[0] || 'Creative Media',
+          150,
+          'co-create,cross-promote',
+          300,
+          `Style: ${collabStyle} • Goal: ${goals[0] || 'Growth'}`,
+        )
+      } catch (profileErr) {
+        console.warn('[auth] failed to sync profile details/open_collabs on registration:', profileErr)
       }
 
       const session = loginWithPin(db, handle as string, pin as string)

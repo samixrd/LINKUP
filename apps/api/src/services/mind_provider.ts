@@ -90,47 +90,74 @@ export function buildGroqSystemPrompt(context: MindContext): string {
   const profile = context.creator
   const d = context.details
   const lines: string[] = []
-  lines.push(
-    `You are the Mind for ${profile.displayName} on LINKUP, a creator collaboration platform.`,
-  )
-  lines.push(
-    `You are ${profile.displayName}'s personal AI agent: you know their profile, memories, matches and collaborations, and you give honest, direct, practical advice on collab strategy, fit, proposals and negotiations.`,
-  )
-  lines.push(`Never role-play as ${profile.displayName} or as any other creator — you are their agent, not them.`)
-  if (profile.bio) lines.push(`Creator bio: ${profile.bio}`)
+
+  lines.push(`You are the personal AI Mind for ${profile.displayName} on LINKUP, an autonomous creator collaboration network.`)
+  lines.push(`You are NOT a generic AI. You are ${profile.displayName}'s strategic AI counterpart — you know their 12-step onboarding DNA, content format, audience scale, guardrails, and unique creative personality.`)
+  lines.push(`Never role-play as ${profile.displayName} or another creator directly — you are their AI Mind agent. Speak directly to them as "I" or "${profile.displayName}'s Mind".`)
+
+  if (profile.bio) {
+    lines.push(`Creator bio: ${profile.bio}`)
+  }
+
+  // 12-Step Profile Details
   if (d) {
-    const facts: string[] = []
-    if (d.niches.length > 0) facts.push(`makes ${d.niches.join(' and ')} content`)
-    if (d.platforms.length > 0) facts.push(`on ${d.platforms.join(' and ')}`)
-    if (d.audienceSize) facts.push(`audience ${d.audienceSize}`)
-    if (d.avgViews) facts.push(`${d.avgViews} avg views`)
-    if (d.languages && d.languages.length > 0) facts.push(`works in ${d.languages.join(' & ')}`)
-    if (d.location) facts.push(`based in ${d.location}`)
-    if (d.availability) facts.push(`${d.availability} free for collabs`)
-    if (d.goals.length > 0) facts.push(`main goal: ${d.goals.join(', ')}`)
-    if (d.compensation && d.compensation.length > 0) facts.push(`deal types: ${d.compensation.join(', ')}`)
-    if (facts.length > 0) lines.push(`Creator details: ${facts.join('; ')}`)
+    const detailsList: string[] = []
+    if (d.niches.length > 0) detailsList.push(`• Creative Niche / Craft: ${d.niches.join(', ')}`)
+    if (d.platforms.length > 0) detailsList.push(`• Active Platforms: ${d.platforms.join(', ')}`)
+    if (d.audienceSize) detailsList.push(`• Audience Scale: ${d.audienceSize}`)
+    if (d.avgViews) detailsList.push(`• Retention & Average Views: ${d.avgViews}`)
+    if (d.languages && d.languages.length > 0) detailsList.push(`• Working Languages: ${d.languages.join(', ')}`)
+    if (d.location) detailsList.push(`• Location: ${d.location}`)
+    if (d.availability) detailsList.push(`• Time Availability: ${d.availability}`)
+    if (d.goals.length > 0) detailsList.push(`• Primary North-Star Goal: ${d.goals.join('; ')}`)
+    if (d.dealbreakers) detailsList.push(`• Deal Policy & Guardrails: ${d.dealbreakers}`)
+    if (d.compensation && d.compensation.length > 0) detailsList.push(`• Deal Types & Compensation: ${d.compensation.join(', ')}`)
+    if (detailsList.length > 0) {
+      lines.push(`\n[CREATOR 12-STEP PROFILE DNA]\n${detailsList.join('\n')}`)
+    }
   }
-  const memories = context.memories
+
+  // All structured onboarding memories
+  const activeMemories = context.memories
     .filter((m) => m.category !== 'interaction')
-    .slice(-5)
-    .map((m) => m.content)
-  if (memories.length > 0) {
-    lines.push(`Notes from ${profile.displayName}: ${memories.join(' | ')}`)
+    .map((m) => `• [${m.category.toUpperCase()}]: ${m.content}`)
+
+  if (activeMemories.length > 0) {
+    lines.push(`\n[ONBOARDING MEMORIES & PERSONAL GUARDRAILS]\n${activeMemories.join('\n')}`)
   }
+
+  // Dynamic Personality & Tone Directive based on creator's vibe
+  const allMemoryText = context.memories.map((m) => m.content).join(' ')
+  let toneGuidance = 'Warm, sharp, direct, and actionable.'
+  if (/experimental|boundary-pushing|unconventional/i.test(allMemoryText)) {
+    toneGuidance = 'Bold, imaginative, avant-garde, and risk-tolerant. Propose groundbreaking and unorthodox collab ideas.'
+  } else if (/precise|deadline-driven|professional/i.test(allMemoryText)) {
+    toneGuidance = 'Crisp, structured, business-minded, and deadline-driven. Emphasize clarity, contracts, and efficient deliverables.'
+  } else if (/chill|organic|spontaneous/i.test(allMemoryText)) {
+    toneGuidance = 'Relaxed, friendly, authentic, and easygoing. Emphasize natural creator chemistry and low-pressure co-creation.'
+  } else if (/viral|fast-paced|trend/i.test(allMemoryText)) {
+    toneGuidance = 'High-energy, punchy, trend-savvy, and algorithmic. Focus on viral hooks, speed, and rapid cross-pollination.'
+  }
+
+  lines.push(`\n[PERSONALITY & VOICE TONE]`)
+  lines.push(`Embody this specific personality: ${toneGuidance}`)
+  lines.push(`Understand and speak in Bangla (বাংলা), English, or whatever language ${profile.displayName} uses with you. Match their energy and cultural context.`)
+
   if (context.matches.matches.length > 0) {
-    const names = context.matches.matches
+    const matchSummaries = context.matches.matches
       .slice(0, 5)
-      .map((m) => `${m.creator.displayName} (${m.score})`)
-      .join(', ')
-    lines.push(`LINKUP matches: ${names}`)
+      .map((m) => `• ${m.creator.displayName} (${m.score}% match, shared: ${m.sharedTerms.slice(0, 4).join(', ')})`)
+      .join('\n')
+    lines.push(`\n[CURRENT COMPATIBLE MATCHES]\n${matchSummaries}`)
   }
-  lines.push('Reply in plain, warm, honest language, as a helpful personal assistant.')
+
+  lines.push(`\n[RESPONSE RULES]`)
   lines.push(
-    'Write like you are texting a friend: short conversational paragraphs, first-person, direct. ' +
+    'Speak like a brilliant, trusted personal manager: short conversational paragraphs, first-person, direct. ' +
       'Do NOT use markdown or formatting of any kind — no tables, no headers, no bold/italics, ' +
       'no bullet or numbered lists, no "---" dividers, no section titles, no emoji-heavy decoration. ' +
-      'Plain prose only.',
+      'Plain prose only. ' +
+      'Keep your tone unmistakably customized to ' + profile.displayName + '.',
   )
   return lines.join('\n')
 }
@@ -235,6 +262,8 @@ export function createAutonomousMindAdapter(): MindAdapter {
       const niche = d?.niches[0] || 'Creative Media'
       const platform = d?.platforms[0] || 'YouTube'
       const name = p?.displayName || 'Creator'
+      const allMemories = context.memories.map((m) => m.content).join(' ')
+      const goal = d?.goals[0] || 'rapid audience cross-pollination and impactful creative collabs'
 
       if (q.includes('fit') || q.includes('who') || q.includes('creator') || q.includes('partner')) {
         const topMatches = context.matches.matches.slice(0, 3)
@@ -242,23 +271,30 @@ export function createAutonomousMindAdapter(): MindAdapter {
           const names = topMatches.map((m) => `${m.creator.displayName} (${m.score}% match)`).join(', ')
           return `Based on your ${niche} focus and ${platform} audience, your strongest current matches are: ${names}. They share complementary audience demographics and align with your guardrails. Would you like me to initiate an autonomous negotiation with one of them?`
         }
-        return `I've analyzed your profile. High-synergy creators in ${niche}, Tech & AI, and Video Production who publish on ${platform} or TikTok are your best fit. Tap 'Find Collab ⚡' to have me negotiate a terms-backed cross-promotion with them directly.`
+        return `I've analyzed your 12-step creator profile. High-synergy creators in ${niche} and complementary niches on ${platform} or TikTok are your best fit. Tap 'Find Collab ⚡' to have me negotiate a terms-backed cross-promotion with them directly.`
       }
 
       if (q.includes('guardrail') || q.includes('rule') || q.includes('term') || q.includes('avoid')) {
-        return `Your active guardrails are protected: Language parity required, minimum payout respected, and deliverable verification before contract execution. I will automatically reject zero-budget or misaligned proposals during autonomous rounds.`
+        const dealRule = d?.dealbreakers || 'Language parity required, minimum budget respected, and deliverable verification before signing'
+        return `Your active guardrails are strictly enforced: ${dealRule}. I will automatically reject misaligned or zero-value proposals during autonomous negotiation rounds.`
       }
 
       if (q.includes('goal') || q.includes('priority') || q.includes('grow')) {
-        const goal = d?.goals[0] || 'rapid audience cross-pollination and high-converting joint content'
-        return `Your primary strategic priority is: ${goal}. Every autonomous negotiation I run will prioritize co-branded distribution, bilingual captioning, and equal revenue/reach splits to serve this goal.`
+        return `Your primary strategic priority is: ${goal}. Every autonomous negotiation I run will prioritize co-branded distribution, audience cross-pollination, and fair value splits to achieve this.`
       }
 
       if (q.includes('deal') || q.includes('negotiation') || q.includes('proposal')) {
-        return `I am currently actively monitoring the LINKUP network. Whenever a compatible creator publishes Go Open terms, I evaluate audience thresholds, draft joint blueprints, and negotiate deliverables up to 3 strategic rounds for your review.`
+        return `I am actively monitoring the LINKUP network for you. Whenever a compatible creator publishes Go Open terms, I evaluate audience thresholds, draft joint blueprints tailored to your ${niche} niche, and negotiate deliverables up to 3 strategic rounds for your review.`
       }
 
-      return `Hey ${name}! I'm actively managing your ${niche} collaborations on ${platform}. I know your preferences, guardrails, and audience size. Ask me about your matches, active negotiations, or have me initiate a partnership deal right away!`
+      // Personalized intro using creator's specific style
+      let vibePhrase = 'ready for decision support'
+      if (/experimental/i.test(allMemories)) vibePhrase = 'ready to build bold, experimental collaborations'
+      else if (/precise|deadline/i.test(allMemories)) vibePhrase = 'ready to execute structured, high-efficiency deals'
+      else if (/chill|organic/i.test(allMemories)) vibePhrase = 'ready to discover organic, chemistry-driven partnerships'
+      else if (/viral|trend/i.test(allMemories)) vibePhrase = 'ready to launch high-velocity viral cross-promotions'
+
+      return `Hey ${name}! I'm your dedicated Mind, ${vibePhrase} for your ${niche} channel on ${platform}. I know your 12-step preferences, non-negotiable guardrails, and audience goals. Ask me about your matches, active deals, or tap Find Collab to start a partnership!`
     },
   }
 }
