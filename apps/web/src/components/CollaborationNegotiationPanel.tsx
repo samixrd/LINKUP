@@ -12,6 +12,7 @@ import {
   type MindNegotiationDecision,
   type MindNegotiationPreview,
 } from '../api'
+import EscrowModal from './EscrowModal'
 
 interface CollaborationNegotiationPanelProps {
   creatorId: string
@@ -232,12 +233,32 @@ function CollaborationRow({
     }
   }
 
+  const [showEscrow, setShowEscrow] = useState(false)
+
   return (
     <li className="collab-row" aria-label={`Collaboration ${collab.id}`}>
       <div className="collab-row-header">
         <span className="collab-row-id">{collab.id}</span>
-        <span className="badge">{collab.status}</span>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-sm btn-escrow-open"
+            style={{ padding: '0.2rem 0.6rem', fontSize: '0.72rem', borderColor: 'var(--ink)', background: 'transparent' }}
+            onClick={() => setShowEscrow(true)}
+          >
+            🔒 Escrow & Deliverables
+          </button>
+          <span className="badge">{collab.status}</span>
+        </div>
       </div>
+
+      {showEscrow && (
+        <EscrowModal
+          collaborationId={collab.id}
+          creatorId={creatorId}
+          onClose={() => setShowEscrow(false)}
+        />
+      )}
       <p className="collab-row-participants">
         {collab.initiatorId} → {collab.targetId} {collab.proposedBy ? <span>· proposed by {collab.proposedBy}</span> : null}
       </p>
