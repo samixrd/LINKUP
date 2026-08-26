@@ -1,7 +1,49 @@
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# Build outputs & caches
 dist/
+build/
 *.tsbuildinfo
+.turbo/
+.cache/
+.vite/
+
+# Environment variables & secrets (CRITICAL SECURITY)
 .env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+*.cert
+*.credentials
+credentials.json
+
+# Local databases & SQLite files
 packages/db/data/*.db
 packages/db/data/*.db-shm
 packages/db/data/*.db-wal
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs & debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.system_generated/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
