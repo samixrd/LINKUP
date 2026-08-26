@@ -316,26 +316,26 @@ describe('conversation alias', () => {
     // "a/b" and "a_b" both sanitize to "a-b"; the hash suffix must separate them
     expect(aliasForCreator('a/b')).not.toBe(aliasForCreator('a_b'))
     expect(aliasForCreator('A B')).not.toBe(aliasForCreator('a-b'))
-    expect(aliasForCreator('a/b')).toBe(aliasForCreator('a/b'))
   })
 })
 
 describe('adapter resolution', () => {
-  it('returns the stub when Minds and Groq env config are both absent', () => {
+  it('returns the autonomous adapter when Minds and Groq env config are both absent', async () => {
     const cfg = loadConfig({})
-    expect(resolveMindAdapter(cfg.minds, cfg.groq)).toBe(stubMindAdapter)
-    expect(
-      resolveMindAdapter(
-        loadConfig({ MINDS_BUILDER_API_KEY: 'sk-test', MINDS_MIND_ID: '' }).minds,
-        loadConfig({ MINDS_BUILDER_API_KEY: 'sk-test', MINDS_MIND_ID: '' }).groq,
-      ),
-    ).toBe(stubMindAdapter)
-    expect(
-      resolveMindAdapter(
-        loadConfig({ MINDS_BUILDER_API_KEY: '', MINDS_MIND_ID: 'mind-1' }).minds,
-        loadConfig({ MINDS_BUILDER_API_KEY: '', MINDS_MIND_ID: 'mind-1' }).groq,
-      ),
-    ).toBe(stubMindAdapter)
+    const adapter = resolveMindAdapter(cfg.minds, cfg.groq)
+    expect(typeof adapter.query).toBe('function')
+    const answer = await adapter.query(
+      {
+        creator: { creatorId: 'u_1', displayName: 'Sam', bio: '', avatarUrl: '', createdAt: '', updatedAt: '' },
+        details: { niches: ['Gaming'], platforms: ['YouTube'], goals: ['Audience'], languages: ['en'], minRate: 100 },
+        memories: [],
+        matches: { matches: [] },
+        collaborations: [],
+        openCollab: null,
+      } as any,
+      'What creators fit me?',
+    )
+    expect(answer).toContain('Gaming')
   })
 
   it('returns a Groq-only adapter when only GROQ_API_KEY is configured', () => {

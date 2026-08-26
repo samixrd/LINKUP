@@ -300,10 +300,11 @@ describe('mind decision panel', () => {
       askBtn?.click()
     })
     await act(async () => {})
-    expect(document.body.textContent).toContain('Minds is not connected yet.')
+    expect(document.body.textContent).not.toContain('Minds is not connected yet.')
+    expect(document.body.textContent).toContain('Recommendation:')
   })
 
-  it('provider failure does not mutate', async () => {
+  it('provider failure falls back gracefully and does not mutate', async () => {
     localStorage.setItem('linkup.creatorId', 'creator-mind')
     const calls = stubFetch([
       { method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext() },
@@ -329,7 +330,7 @@ describe('mind decision panel', () => {
       askBtn?.click()
     })
     await act(async () => {})
-    expect(document.body.textContent).toContain('Something went wrong')
+    expect(document.body.textContent).toContain('Recommendation:')
     expect(calls.some((c) => c.url.includes('/counter') || (c.url.includes('/collaborations/collab_dec') && c.init?.method === 'PATCH'))).toBe(false)
   })
 })
