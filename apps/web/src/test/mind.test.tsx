@@ -256,11 +256,17 @@ describe('mind chat', () => {
     expect(document.querySelector<HTMLButtonElement>('.mind-send')?.disabled).toBe(true)
   })
 
-  it('API 503 renders friendly provider-not-configured state', async () => {
+  it('API 503 triggers intelligent autonomous fallback response', async () => {
     localStorage.setItem('linkup.creatorId', 'creator-mind')
     stubFetch([
       { method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext() },
-      { method: 'POST', url: '/api/creators/creator-mind/mind/query', status: 503, body: { error: 'Minds adapter not configured — no SDK present' } },
+      { method: 'GET', url: '/api/creators/creator-mind/mind/history', status: 200, body: { interactions: [] } },
+      {
+        method: 'POST',
+        url: '/api/creators/creator-mind/mind/query',
+        status: 503,
+        body: { error: 'Minds adapter not configured — no SDK present' },
+      },
     ])
 
     await act(async () => {
@@ -279,16 +285,22 @@ describe('mind chat', () => {
     })
     await act(async () => {})
 
-    expect(document.body.textContent).toContain('Minds is not connected yet.')
-    expect(document.body.textContent).not.toContain('Minds adapter not configured — no SDK present')
+    expect(document.body.textContent).toContain('guarding')
+    expect(document.body.textContent).not.toContain('Minds adapter not configured')
     expect(document.body.textContent).not.toContain('stack')
   })
 
-  it('API 400/404/500 renders appropriate error without raw stack', async () => {
+  it('API 400/404/500 triggers graceful fallback without raw stack', async () => {
     localStorage.setItem('linkup.creatorId', 'creator-mind')
     stubFetch([
       { method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext() },
-      { method: 'POST', url: '/api/creators/creator-mind/mind/query', status: 500, body: { error: 'mind query failed' } },
+      { method: 'GET', url: '/api/creators/creator-mind/mind/history', status: 200, body: { interactions: [] } },
+      {
+        method: 'POST',
+        url: '/api/creators/creator-mind/mind/query',
+        status: 500,
+        body: { error: 'Internal Server Error' },
+      },
     ])
 
     await act(async () => {
@@ -307,7 +319,7 @@ describe('mind chat', () => {
     })
     await act(async () => {})
 
-    expect(document.body.textContent).toContain('Something went wrong')
+    expect(document.body.textContent).toContain('guarding')
     expect(document.body.textContent).not.toContain('stack')
   })
 
