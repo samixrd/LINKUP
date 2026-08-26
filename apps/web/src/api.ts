@@ -1,7 +1,9 @@
 export const LIVE_API_URL = 'https://linkup-api-e2qb.onrender.com'
 
 export function getApiBase(): string {
-  return typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+  // If VITE_API_URL is explicitly set, use it; otherwise '' routes to same-origin /api (handled by Vercel rewrites or Vite dev proxy)
+  const envUrl = typeof import.meta !== 'undefined' && import.meta.env ? (import.meta.env.VITE_API_URL as string | undefined) : ''
+  return envUrl ?? ''
 }
 export interface HealthStatus {
   status: 'ok' | 'degraded'

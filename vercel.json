@@ -1,1 +1,15 @@
-{"installCommand":"npm install --include=dev","buildCommand":"npm run build -w packages/db && npm run build -w apps/web","outputDirectory":"apps/web/dist","rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{
+  "installCommand": "npm install --include=dev",
+  "buildCommand": "npm run build -w packages/db && npm run build -w apps/web",
+  "outputDirectory": "apps/web/dist",
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://linkup-api-e2qb.onrender.com/api/:match*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -1,4 +1,9 @@
-/ Global injected by Vite define at build time.
-// In dev: empty string ('') — Vite proxy handles /api → localhost:3001.
-// In production: VITE_API_URL value (e.g. https://linkup-api.railway.app).
-declare const __API_BASE__: string
+// Vite env types for LINKUP web app.
+// VITE_API_URL is set in Vercel dashboard and inlined at build time via import.meta.env.
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
+interface ImportMetaEnv {
+  readonly VITE_API_URL?: string
+}
