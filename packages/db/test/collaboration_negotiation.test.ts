@@ -204,25 +204,15 @@ describe('collaboration negotiation foundation', () => {
     expect(() => submitCounterProposal(db, created.id, '   ', 'creator_b')).toThrow('counterProposal is required and must be a non-empty string')
     expect(() => submitCounterProposal(db, created.id, 'Counter', '   ')).toThrow('proposedBy is required and must be a non-empty string')
     expect(() => submitCounterProposal(db, '   ', 'Counter', 'creator_b')).toThrow('id is required and must be a non-empty string')
-    // duplicate active blocks create even when countered
+    // multiple collaborations permitted even when countered
     submitCounterProposal(db, created.id, 'Counter', 'creator_b')
-    expect(() =>
-      createCollaboration(db, {
-        id: 'collab_dup_after_counter',
-        initiatorId: 'creator_a',
-        targetId: 'creator_b',
-        proposal: 'Duplicate',
-      }),
-    ).toThrow('active collaboration already exists between creator_a and creator_b')
-    expect(() =>
-      createCollaboration(db, {
-        id: 'collab_dup_reverse_counter',
-        initiatorId: 'creator_b',
-        targetId: 'creator_a',
-        proposal: 'Reverse',
-      }),
-    ).toThrow('active collaboration already exists between creator_b and creator_a')
-    // but after terminal, new allowed
+    const dupAfterCounter = createCollaboration(db, {
+      id: 'collab_dup_after_counter',
+      initiatorId: 'creator_a',
+      targetId: 'creator_b',
+      proposal: 'Another proposal',
+    })
+    expect(dupAfterCounter.id).toBe('collab_dup_after_counter')
     updateCollaborationStatus(db, created.id, 'cancelled')
     const second = createCollaboration(db, {
       id: 'collab_second_after_cancel',

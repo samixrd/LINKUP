@@ -382,30 +382,29 @@ describe('collaborations', () => {
     db.close()
   })
 
-  it('rejects duplicate pending collaboration in either direction', () => {
+  it('allows multiple collaborations between creators', () => {
     const db = testDb()
-    createCollaboration(db, {
+    const first = createCollaboration(db, {
       id: 'collab_first',
       initiatorId: 'creator_a',
       targetId: 'creator_b',
       proposal: 'First',
     })
-    expect(() =>
-      createCollaboration(db, {
-        id: 'collab_dup_same',
-        initiatorId: 'creator_a',
-        targetId: 'creator_b',
-        proposal: 'Duplicate',
-      }),
-    ).toThrow('active collaboration already exists between creator_a and creator_b')
-    expect(() =>
-      createCollaboration(db, {
-        id: 'collab_dup_reverse',
-        initiatorId: 'creator_b',
-        targetId: 'creator_a',
-        proposal: 'Reverse',
-      }),
-    ).toThrow('active collaboration already exists between creator_b and creator_a')
+    const second = createCollaboration(db, {
+      id: 'collab_second',
+      initiatorId: 'creator_a',
+      targetId: 'creator_b',
+      proposal: 'Second',
+    })
+    const reverse = createCollaboration(db, {
+      id: 'collab_reverse',
+      initiatorId: 'creator_b',
+      targetId: 'creator_a',
+      proposal: 'Reverse',
+    })
+    expect(first.id).toBe('collab_first')
+    expect(second.id).toBe('collab_second')
+    expect(reverse.id).toBe('collab_reverse')
     db.close()
   })
 

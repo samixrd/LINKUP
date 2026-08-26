@@ -13,13 +13,28 @@ type StubRoute = {
 
 function stubFetch(routes: StubRoute[]): Array<{ url: string; init?: RequestInit }> {
   const calls: Array<{ url: string; init?: RequestInit }> = []
+  const defaultRoutes: StubRoute[] = [
+    {
+      method: 'GET',
+      url: '/api/open-collabs/creator-mind',
+      status: 200,
+      body: { creatorId: 'creator-mind', openToCollab: true, myFollowers: 5000, minPartnerFollowers: 0 },
+    },
+  ]
+  const mergedRoutes = [...routes]
+  for (const def of defaultRoutes) {
+    if (!mergedRoutes.some((r) => r.method === def.method && r.url === def.url)) {
+      mergedRoutes.push(def)
+    }
+  }
+
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = (init?.method ?? 'GET') as 'GET' | 'POST'
       calls.push({ url, init })
-      const route = routes.find((r) => r.method === method && r.url === url)
+      const route = mergedRoutes.find((r) => r.method === method && r.url === url)
       if (!route) {
         return { ok: false, status: 404, json: async () => ({ error: 'not found' }) } as Response
       }
@@ -670,5 +685,97 @@ describe('mind collaboration panel', () => {
     })
 
     expect(document.body.textContent).not.toContain('N°004 — Collaboration')
+  })
+
+  it('shows Go Open warning modal when trying to propose collaboration without completing Go Open', async () => {
+    localStorage.setItem('linkup.creatorId', 'creator-mind')
+    stubFetch([
+      { method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext() },
+      { method: 'GET', url: '/api/open-collabs/creator-mind', status: 404, body: { error: 'not found' } },
+    ])
+
+    await act(async () => {
+      renderAppAt('/mind')
+    })
+    await act(async () => {})
+
+    const openBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Propose Collaboration'),
+    )
+    expect(openBtn).not.toBeNull()
+    await act(async () => {
+      openBtn?.click()
+    })
+
+    expect(document.body.textContent).toContain('Complete "Go Open" First')
+    expect(document.body.textContent).toContain('Configure Go Open Now →')
+
+    // Click button to navigate to Go Open section
+    const configBtn = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Configure Go Open Now →'),
+    )
+    await act(async () => {
+      configBtn?.click()
+    })
+
+    expect(document.body.textContent).toContain('Go Open ✦')
+  })
+
+  it('shows Go Open warning modal on Find Collab button click when Go Open is incomplete', async () => {
+    localStorage.setItem('linkup.creatorId', 'creator-mind')
+    stubFetch([
+      { method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext() },
+      { method: 'GET', url: '/api/open-collabs/creator-mind', status: 404, body: { error: 'not found' } },
+    ])
+
+    await act(async () => {
+      renderAppAt('/mind')
+    })
+    await act(async () => {})
+
+    const findBtn = [...document.querySelectorAll<HTMLButtonElement>('.collab-open-btn')].find(
+      (b) => b.textContent?.includes('Find Collab ⚡'),
+    )
+    expect(findBtn).not.toBeNull()
+    await act(async () => {
+      findBtn?.click()
+    })
+
+    expect(document.body.textContent).toContain('Complete "Go Open" First')
+    expect(document.body.textContent).toContain('Configure Go Open Now →')
+  })
+
+  it('shows Go Open warning card on Matches tab when Go Open is incomplete and clicking button navigates to Go Open tab', async () => {
+    localStorage.setItem('linkup.creatorId', 'creator-mind')
+    stubFetch([
+      { method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext() },
+      { method: 'GET', url: '/api/open-collabs/creator-mind', status: 404, body: { error: 'not found' } },
+    ])
+
+    await act(async () => {
+      renderAppAt('/mind')
+    })
+    await act(async () => {})
+
+    const matchesTab = [...document.querySelectorAll<HTMLButtonElement>('.mind-tab')].find(
+      (b) => b.textContent?.includes('Matches'),
+    )
+    expect(matchesTab).not.toBeNull()
+    await act(async () => {
+      matchesTab?.click()
+    })
+
+    expect(document.body.textContent).toContain('Matching Criteria Required')
+    expect(document.body.textContent).toContain('Configure Go Open Form →')
+
+    // Click button to navigate to Go Open form
+    const configBtn = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Configure Go Open Form →'),
+    )
+    await act(async () => {
+      configBtn?.click()
+    })
+
+    expect(document.body.textContent).toContain('Go Open ✦')
   })
 })

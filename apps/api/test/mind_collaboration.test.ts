@@ -309,7 +309,7 @@ describe('mind collaboration service', () => {
     db.close()
   })
 
-  it('execute rejects a duplicate pending collaboration and persists nothing', async () => {
+  it('execute creates another collaboration when one already exists', async () => {
     const db = createDatabase(':memory:')
     migrate(db)
     seedMatchGraph(db)
@@ -319,15 +319,11 @@ describe('mind collaboration service', () => {
       targetId: 'svc_bob',
       proposal: 'Already pending',
     })
-    const historyBefore = listMindInteractions(db, 'svc_alice')
     const service = createMindCollaborationService({ db, adapter: recordingAdapter() })
 
-    await expect(service.execute('svc_alice', { targetId: 'svc_bob', confirm: true })).rejects.toThrow(
-      'active collaboration already exists',
-    )
-    expect(listCollaborationsForCreator(db, 'svc_alice').total).toBe(1)
-    const historyAfter = listMindInteractions(db, 'svc_alice')
-    expect(historyAfter.total).toBe(historyBefore.total)
+    const result = await service.execute('svc_alice', { targetId: 'svc_bob', confirm: true })
+    expect(result.id).not.toBe('existing_collab')
+    expect(listCollaborationsForCreator(db, 'svc_alice').total).toBe(2)
     db.close()
   })
 
@@ -668,26 +664,18 @@ describe('mind collaboration API', () => {
       expect(((await ghostTarget.json()) as { error: string }).error).toContain('creator profile not found: ghost')
     })
 
-    it('returns 409 for a duplicate pending collaboration without persisting history', async () => {
+    it('creates multiple collaborations successfully for the same creator pair', async () => {
       createCollaboration(db, {
         id: 'api_dup_collab',
         initiatorId: 'api_alice',
         targetId: 'api_bob',
         proposal: 'Already pending',
       })
-      const historyBefore = (await (await fetch(`${fakeBase}/api/creators/api_alice/mind/history`)).json()) as {
-        total: number
-      }
 
       const res = await postExecute('api_alice', { targetId: 'api_bob', confirm: true })
-      expect(res.status).toBe(409)
-      const body = (await res.json()) as { error: string }
-      expect(body.error).toContain('active collaboration already exists')
-
-      const historyAfter = (await (await fetch(`${fakeBase}/api/creators/api_alice/mind/history`)).json()) as {
-        total: number
-      }
-      expect(historyAfter.total).toBe(historyBefore.total)
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { collaboration: { id: string } }
+      expect(body.collaboration.id).not.toBe('api_dup_collab')
     })
 
     it('returns 503 when no Minds adapter is configured', async () => {

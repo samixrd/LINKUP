@@ -106,23 +106,21 @@ describe('collaborations API', () => {
       expect(body.id).toBe('collab_custom_id')
     })
 
-    it('returns 409 for duplicate pending collaboration', async () => {
-      // collab_custom_id already pending between a and c
+    it('allows multiple collaborations and returns 409 for duplicate id', async () => {
+      // Multiple collaborations between a and c are allowed
       const res = await postCollab('collab_creator_a', {
         targetId: 'collab_creator_c',
-        proposal: 'Duplicate attempt.',
+        proposal: 'Second proposal attempt.',
       })
-      expect(res.status).toBe(409)
-      const body = (await res.json()) as { error: string }
-      expect(body.error).toContain('active collaboration already exists')
-    })
+      expect(res.status).toBe(201)
 
-    it('returns 409 when reverse pending exists', async () => {
-      const res = await postCollab('collab_creator_c', {
-        targetId: 'collab_creator_a',
-        proposal: 'Reverse duplicate.',
+      // Exact same id returns 409
+      const dupIdRes = await postCollab('collab_creator_a', {
+        id: 'collab_custom_id',
+        targetId: 'collab_creator_c',
+        proposal: 'Duplicate id attempt.',
       })
-      expect(res.status).toBe(409)
+      expect(dupIdRes.status).toBe(409)
     })
 
     it('returns 404 for unknown initiator or target', async () => {

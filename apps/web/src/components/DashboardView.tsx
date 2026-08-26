@@ -14,6 +14,7 @@ import EscrowModal from './EscrowModal'
 interface Props {
   creatorId: string
   context: MindContext
+  hasCompletedGoOpen?: boolean
   onOpenGoOpen: () => void
   onOpenLiveNegotiation: (targetId?: string, targetName?: string) => void
   onOpenChat: () => void
@@ -23,6 +24,7 @@ interface Props {
 export default function DashboardView({
   creatorId,
   context,
+  hasCompletedGoOpen = false,
   onOpenGoOpen,
   onOpenLiveNegotiation,
   onOpenChat,
@@ -264,46 +266,67 @@ export default function DashboardView({
               <h4 className="card-title">Go Open Status</h4>
             </div>
 
-            <div className="go-open-pill-status">
-              <span className={`status-indicator ${openCard?.openToCollab !== false ? 'is-on' : 'is-off'}`} />
-              <span>{openCard?.openToCollab !== false ? 'Matching Active' : 'Matching Paused'}</span>
-            </div>
+            {!hasCompletedGoOpen && openCard === null ? (
+              <div style={{ padding: '0.5rem 0' }}>
+                <div className="go-open-pill-status" style={{ marginBottom: '0.8rem' }}>
+                  <span className="status-indicator is-off" />
+                  <span style={{ color: 'var(--warn-ink, #eab308)', fontWeight: 600 }}>Setup Required ⚠️</span>
+                </div>
+                <p style={{ fontSize: '0.84rem', lineHeight: '1.45', color: 'var(--ink-soft)', marginBottom: '1rem' }}>
+                  Complete your Go Open form to establish your platform, niche, budget floor, and guardrails for autonomous matching.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-block btn-primary"
+                  onClick={onOpenGoOpen}
+                >
+                  Complete Go Open Form →
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="go-open-pill-status">
+                  <span className={`status-indicator ${openCard?.openToCollab !== false ? 'is-on' : 'is-off'}`} />
+                  <span>{openCard?.openToCollab !== false ? 'Matching Active' : 'Matching Paused'}</span>
+                </div>
 
-            <div className="side-criteria-list">
-              <div className="side-criterion">
-                <span className="criterion-label">Platform:</span>
-                <span className="criterion-val">{openCard?.platform || 'Instagram'}</span>
-              </div>
-              <div className="side-criterion">
-                <span className="criterion-label">Niche:</span>
-                <span className="criterion-val">{openCard?.niche || 'Tech & AI'}</span>
-              </div>
-              <div className="side-criterion">
-                <span className="criterion-label">Min Follower Floor:</span>
-                <span className="criterion-val">
-                  {openCard?.minPartnerFollowers ? `${openCard.minPartnerFollowers.toLocaleString()}+` : '0 (Anyone)'}
-                </span>
-              </div>
-              <div className="side-criterion">
-                <span className="criterion-label">Min Budget:</span>
-                <span className="criterion-val">${openCard?.minRate ?? 0}</span>
-              </div>
-              <div className="side-criterion">
-                <span className="criterion-label">Collab Types:</span>
-                <span className="criterion-val">
-                  {(openCard?.collabTypes && openCard.collabTypes.join(', ')) || 'Paid, Barter'}
-                </span>
-              </div>
-            </div>
+                <div className="side-criteria-list">
+                  <div className="side-criterion">
+                    <span className="criterion-label">Platform:</span>
+                    <span className="criterion-val">{openCard?.platform || 'Instagram'}</span>
+                  </div>
+                  <div className="side-criterion">
+                    <span className="criterion-label">Niche:</span>
+                    <span className="criterion-val">{openCard?.niche || 'Tech & AI'}</span>
+                  </div>
+                  <div className="side-criterion">
+                    <span className="criterion-label">Min Follower Floor:</span>
+                    <span className="criterion-val">
+                      {openCard?.minPartnerFollowers ? `${openCard.minPartnerFollowers.toLocaleString()}+` : '0 (Anyone)'}
+                    </span>
+                  </div>
+                  <div className="side-criterion">
+                    <span className="criterion-label">Min Budget:</span>
+                    <span className="criterion-val">${openCard?.minRate ?? 0}</span>
+                  </div>
+                  <div className="side-criterion">
+                    <span className="criterion-label">Collab Types:</span>
+                    <span className="criterion-val">
+                      {(openCard?.collabTypes && openCard.collabTypes.join(', ')) || 'Paid, Barter'}
+                    </span>
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              className="btn btn-block btn-secondary"
-              onClick={onOpenGoOpen}
-              style={{ marginTop: '1rem' }}
-            >
-              Edit Criteria ⚙
-            </button>
+                <button
+                  type="button"
+                  className="btn btn-block btn-secondary"
+                  onClick={onOpenGoOpen}
+                  style={{ marginTop: '1rem' }}
+                >
+                  Edit Criteria ⚙
+                </button>
+              </>
+            )}
           </section>
 
           {/* Own-Mind Decision Support Teaser */}

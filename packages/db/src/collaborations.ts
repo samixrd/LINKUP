@@ -171,25 +171,6 @@ export function createCollaboration(
     throw new Error(`creator profile not found: ${collaboration.targetId}`)
   }
 
-  const existing = db
-    .prepare(
-      `SELECT id FROM collaborations
-       WHERE status IN ('pending', 'countered')
-         AND ((initiator_id = ? AND target_id = ?) OR (initiator_id = ? AND target_id = ?))
-       LIMIT 1`,
-    )
-    .get(
-      collaboration.initiatorId,
-      collaboration.targetId,
-      collaboration.targetId,
-      collaboration.initiatorId,
-    ) as { id: string } | undefined
-  if (existing !== undefined) {
-    throw new Error(
-      `active collaboration already exists between ${collaboration.initiatorId} and ${collaboration.targetId}`,
-    )
-  }
-
   const status: CollaborationStatus = collaboration.status ?? 'pending'
   db.prepare(
     `INSERT INTO collaborations (id, initiator_id, target_id, status, proposal, counter_proposal, proposed_by)

@@ -334,7 +334,7 @@ describe('collaboration negotiation API', () => {
     expect(collab?.status).toBe('countered')
   })
 
-  it('duplicate pending/countered blocks new collaboration', async () => {
+  it('allows multiple collaborations between creators', async () => {
     const createRes = await postCollab('negotiator_h', {
       id: 'negotiation_dup_active',
       targetId: 'negotiator_f',
@@ -344,16 +344,9 @@ describe('collaboration negotiation API', () => {
     await postCounterScoped('negotiator_f', 'negotiation_dup_active', { counterProposal: 'Counter' })
     const dup = await postCollab('negotiator_h', {
       targetId: 'negotiator_f',
-      proposal: 'Second attempt should fail',
+      proposal: 'Second attempt allowed',
     })
-    expect(dup.status).toBe(409)
-    // after terminal, should succeed
-    await patchScoped('negotiator_h', 'negotiation_dup_active', { status: 'cancelled' })
-    const afterTerminal = await postCollab('negotiator_h', {
-      targetId: 'negotiator_f',
-      proposal: 'Second after cancel',
-    })
-    expect(afterTerminal.status).toBe(201)
+    expect(dup.status).toBe(201)
   })
 
   it('global counter endpoint respects creator isolation via proposedBy', async () => {

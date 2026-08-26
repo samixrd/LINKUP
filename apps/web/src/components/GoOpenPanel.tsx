@@ -33,6 +33,7 @@ export interface OpenCollabCard {
 interface Props {
   creatorId: string
   onClose?: () => void
+  onSaved?: () => void
   onSavedAndMatch?: () => void
 }
 
@@ -66,7 +67,7 @@ const NICHES = [
 
 const COLLAB_TYPES = ['Paid', 'Barter', 'Affiliate', 'UGC']
 
-export default function GoOpenPanel({ creatorId, onClose, onSavedAndMatch }: Props) {
+export default function GoOpenPanel({ creatorId, onClose, onSaved, onSavedAndMatch }: Props) {
   const [openToCollab, setOpenToCollab] = useState(true)
   const [platform, setPlatform] = useState('Instagram')
   const [myFollowers, setMyFollowers] = useState('')
@@ -185,6 +186,9 @@ export default function GoOpenPanel({ creatorId, onClose, onSavedAndMatch }: Pro
         return
       }
       setSaved(true)
+      if (onSaved) {
+        onSaved()
+      }
       if (startMatchAfter && onSavedAndMatch) {
         onSavedAndMatch()
       }

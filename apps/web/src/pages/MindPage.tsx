@@ -117,7 +117,10 @@ export default function MindPage() {
   }
 
   function handleStartPropose() {
-    // Manual proposal does not require Go Open — the creator picks the partner themselves.
+    if (!hasCompletedGoOpen) {
+      setGoOpenPromptModal(true)
+      return
+    }
     setSection('negotiations')
     setProposeOpen(true)
   }
@@ -371,13 +374,13 @@ export default function MindPage() {
         {goOpenPromptModal && (
           <div className="escrow-modal-overlay" role="dialog" aria-modal="true">
             <div className="card escrow-modal" style={{ maxWidth: '30rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚙️</div>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚠️</div>
               <p className="card-kicker">Matching Criteria Required</p>
               <h3 className="card-title" style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>
                 Complete "Go Open" First
               </h3>
               <p className="card-body" style={{ fontSize: '0.88rem', lineHeight: '1.5', color: 'var(--ink-soft)' }}>
-                Your AI Mind needs your matching criteria (platform, niche, minimum rates, and guardrails) before it can negotiate on your behalf.
+                Your AI Mind needs your matching criteria (platform, niche, minimum rates, and guardrails) before it can find or propose collaborations on your behalf.
               </p>
               <div className="mind-save-actions" style={{ justifyContent: 'center', marginTop: '1.2rem' }}>
                 <button
@@ -447,8 +450,13 @@ export default function MindPage() {
               <DashboardView
                 creatorId={creatorId}
                 context={context}
+                hasCompletedGoOpen={hasCompletedGoOpen}
                 onOpenGoOpen={() => setSection('open')}
                 onOpenLiveNegotiation={(tId, tName) => {
+                  if (!hasCompletedGoOpen) {
+                    setGoOpenPromptModal(true)
+                    return
+                  }
                   setLiveNegotiation({ targetId: tId, targetName: tName })
                 }}
                 onOpenChat={() => setSection('chat')}
@@ -458,53 +466,95 @@ export default function MindPage() {
 
             {section === 'matches' && (
               <section className="collab-section">
-                <MatchFeed
-                  creatorId={creatorId}
-                  onCollab={(match) => {
-                    setLiveNegotiation({
-                      targetId: match.creator.creatorId,
-                      targetName: match.creator.displayName,
-                    })
-                  }}
-                  onLiveNegotiate={(match) => {
-                    setLiveNegotiation({
-                      targetId: match.creator.creatorId,
-                      targetName: match.creator.displayName,
-                    })
-                  }}
-                />
+                {!hasCompletedGoOpen ? (
+                  <div className="card" style={{ maxWidth: '34rem', margin: '2rem auto', textAlign: 'center', padding: '2.5rem 1.8rem' }}>
+                    <div style={{ fontSize: '2.8rem', marginBottom: '0.8rem' }}>⚠️</div>
+                    <p className="card-kicker">Matching Criteria Required</p>
+                    <h3 className="card-title" style={{ fontSize: '1.35rem', marginBottom: '0.8rem' }}>
+                      Complete "Go Open" First
+                    </h3>
+                    <p className="card-body" style={{ fontSize: '0.92rem', lineHeight: '1.55', color: 'var(--ink-soft)', marginBottom: '1.4rem' }}>
+                      To discover compatible creators and unlock automated Mind-to-Mind collaborations, please complete your Go Open settings first.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setSection('open')}
+                    >
+                      Configure Go Open Form →
+                    </button>
+                  </div>
+                ) : (
+                  <MatchFeed
+                    creatorId={creatorId}
+                    onCollab={(match) => {
+                      setLiveNegotiation({
+                        targetId: match.creator.creatorId,
+                        targetName: match.creator.displayName,
+                      })
+                    }}
+                    onLiveNegotiate={(match) => {
+                      setLiveNegotiation({
+                        targetId: match.creator.creatorId,
+                        targetName: match.creator.displayName,
+                      })
+                    }}
+                  />
+                )}
               </section>
             )}
 
             {section === 'negotiations' && (
               <section className="collab-section">
-                {proposeOpen && (
-                  <ProposeCollaborationPanel
-                    key={pendingMatchId ?? 'default'}
-                    creatorId={creatorId}
-                    matches={
-                      pendingMatchId
-                        ? [...context.matches.matches].sort((a, b) =>
-                            a.creator.creatorId === pendingMatchId
-                              ? -1
-                              : b.creator.creatorId === pendingMatchId
-                                ? 1
-                                : 0,
-                          )
-                        : context.matches.matches
-                    }
-                    onCreated={() => {
-                      refreshMindContext()
-                    }}
-                    onClose={() => setProposeOpen(false)}
-                  />
-                )}
+                {!hasCompletedGoOpen && context.collaborations.total === 0 ? (
+                  <div className="card" style={{ maxWidth: '34rem', margin: '2rem auto', textAlign: 'center', padding: '2.5rem 1.8rem' }}>
+                    <div style={{ fontSize: '2.8rem', marginBottom: '0.8rem' }}>⚠️</div>
+                    <p className="card-kicker">Collaboration Setup Required</p>
+                    <h3 className="card-title" style={{ fontSize: '1.35rem', marginBottom: '0.8rem' }}>
+                      Complete "Go Open" First
+                    </h3>
+                    <p className="card-body" style={{ fontSize: '0.92rem', lineHeight: '1.55', color: 'var(--ink-soft)', marginBottom: '1.4rem' }}>
+                      Configure your Go Open criteria so your AI Mind can draft proposals and negotiate deal terms autonomously.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setSection('open')}
+                    >
+                      Configure Go Open Form →
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {proposeOpen && (
+                      <ProposeCollaborationPanel
+                        key={pendingMatchId ?? 'default'}
+                        creatorId={creatorId}
+                        matches={
+                          pendingMatchId
+                            ? [...context.matches.matches].sort((a, b) =>
+                                a.creator.creatorId === pendingMatchId
+                                  ? -1
+                                  : b.creator.creatorId === pendingMatchId
+                                    ? 1
+                                    : 0,
+                              )
+                            : context.matches.matches
+                        }
+                        onCreated={() => {
+                          refreshMindContext()
+                        }}
+                        onClose={() => setProposeOpen(false)}
+                      />
+                    )}
 
-                <CollaborationNegotiationPanel
-                  creatorId={creatorId}
-                  collaborations={context.collaborations.collaborations}
-                  onChanged={refreshMindContext}
-                />
+                    <CollaborationNegotiationPanel
+                      creatorId={creatorId}
+                      collaborations={context.collaborations.collaborations}
+                      onChanged={refreshMindContext}
+                    />
+                  </>
+                )}
               </section>
             )}
 
@@ -513,7 +563,13 @@ export default function MindPage() {
                 <GoOpenPanel
                   creatorId={creatorId}
                   onClose={() => setSection('dashboard')}
+                  onSaved={() => {
+                    setHasCompletedGoOpen(true)
+                    refreshMindContext()
+                  }}
                   onSavedAndMatch={() => {
+                    setHasCompletedGoOpen(true)
+                    refreshMindContext()
                     setLiveNegotiation({})
                   }}
                 />
