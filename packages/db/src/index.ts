@@ -154,3 +154,5 @@ export type {
   MindInteractionFilter,
   MindInteractionList,
 } from './mind_interactions.js'
+export { seedDemoAccounts, DEMO_CREATORS } from './seed.js'
+export type { DemoCreatorSeed } from './seed.js'

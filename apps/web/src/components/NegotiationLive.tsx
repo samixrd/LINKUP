@@ -66,7 +66,8 @@ export default function NegotiationLive({
 
     async function run() {
       try {
-        const path = presetTarget ? '/api/open-collabs/negotiate' : '/api/open-collabs/find-collab'
+        const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+        const path = presetTarget ? `${apiBase}/api/open-collabs/negotiate` : `${apiBase}/api/open-collabs/find-collab`
         const payload = presetTarget ? { creatorId, targetId: presetTarget } : { creatorId }
         const res = await fetch(path, {
           method: 'POST',

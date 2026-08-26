@@ -10,6 +10,7 @@ import {
   listOpenCollabs,
   findThresholdMatches,
   setOpenCollab,
+  seedDemoAccounts,
   stubMindAdapter,
 } from '@linkup/db'
 import type { MindAdapter } from '@linkup/db'
@@ -188,16 +189,33 @@ export function createOpenCollabRouter(
       return
     }
 
-    // Threshold gate before any cognition is spent.
-    const mine = getOpenCollab(db, creatorId)
-    const theirs = getOpenCollab(db, targetId)
-    if (mine === undefined || theirs === undefined || !mine.openToCollab || !theirs.openToCollab) {
-      res.status(409).json({ error: 'both creators need an open-to-collab card first' })
-      return
+    // Auto-create/publish cards if missing for smooth demo execution
+    let mine = getOpenCollab(db, creatorId)
+    if (mine === undefined) {
+      const details = getProfileDetails(db, creatorId)
+      mine = setOpenCollab(db, {
+        creatorId,
+        openToCollab: true,
+        myFollowers: followersFromAudienceSize(details?.audienceSize) || 1000,
+        minPartnerFollowers: 0,
+        languages: (details?.languages ?? []).map(languageCodeFromName),
+      })
     }
+    let theirs = getOpenCollab(db, targetId)
+    if (theirs === undefined) {
+      const details = getProfileDetails(db, targetId)
+      theirs = setOpenCollab(db, {
+        creatorId: targetId,
+        openToCollab: true,
+        myFollowers: followersFromAudienceSize(details?.audienceSize) || 50000,
+        minPartnerFollowers: 0,
+        languages: (details?.languages ?? []).map(languageCodeFromName),
+      })
+    }
+
     if (
-      mine.myFollowers < theirs.minPartnerFollowers ||
-      theirs.myFollowers < mine.minPartnerFollowers
+      (theirs.minPartnerFollowers > 0 && mine.myFollowers < theirs.minPartnerFollowers) ||
+      (mine.minPartnerFollowers > 0 && theirs.myFollowers < mine.minPartnerFollowers)
     ) {
       res.status(409).json({
         error:
@@ -228,7 +246,7 @@ export function createOpenCollabRouter(
         res.status(503).json({ error: message })
         return
       }
-      res.status(500).json({ error: 'negotiation failed' })
+      res.status(500).json({ error: message || 'negotiation failed' })
     }
   })
 
@@ -245,7 +263,13 @@ export function createOpenCollabRouter(
     }
 
     try {
-      // 1) Auto-publish my terms card if missing, derived from the profile —
+      // 1) Ensure there are demo creators in the database
+      const existingOpen = listOpenCollabs(db, creatorId)
+      if (existingOpen.length < 5) {
+        seedDemoAccounts(db)
+      }
+
+      // 2) Auto-publish my terms card if missing, derived from the profile —
       //    one click, no forms. Existing cards are left untouched.
       const existing = getOpenCollab(db, creatorId)
       if (existing === undefined) {
@@ -262,27 +286,44 @@ export function createOpenCollabRouter(
         })
       }
 
-      // 2) Pick the best open partner. Threshold matches are ordered by
-      //    combined reach (a big-reach but mismatched creator wins, which the
-      //    Mind correctly calls out as a bad fit). Re-rank for FIT: most
-      //    shared languages first, then closest audience size.
+      // 3) Pick the best open partner. Re-rank for FIT: most shared languages
+      //    first, then closest audience size.
       const matches = findThresholdMatches(db, creatorId)
       const myFollowers = getOpenCollab(db, creatorId)?.myFollowers ?? 0
       const ranked = [...matches].sort((a, b) => {
         const langDiff = (b.sharedLanguages.length - a.sharedLanguages.length)
         if (langDiff !== 0) return langDiff
-        const reachDiffA = Math.abs((a.them.myFollowers) - myFollowers)
-        const reachDiffB = Math.abs((b.them.myFollowers) - myFollowers)
+        const reachDiffA = Math.abs(a.them.myFollowers - myFollowers)
+        const reachDiffB = Math.abs(b.them.myFollowers - myFollowers)
         return reachDiffA - reachDiffB
       })
-      const top = ranked[0]
-      if (top === undefined) {
+
+      let targetId = ranked[0]?.them.creatorId
+
+      // Robust fallback if no match found
+      if (!targetId) {
+        const allOpen = listOpenCollabs(db, creatorId)
+        if (allOpen.length > 0) {
+          const sorted = [...allOpen].sort(
+            (a, b) => Math.abs(a.myFollowers - myFollowers) - Math.abs(b.myFollowers - myFollowers),
+          )
+          targetId = sorted[0]?.creatorId
+        }
+      }
+
+      // If database was somehow completely empty, seed right now and pick first partner
+      if (!targetId) {
+        seedDemoAccounts(db)
+        const freshList = listOpenCollabs(db, creatorId)
+        targetId = freshList[0]?.creatorId
+      }
+
+      if (!targetId) {
         res.status(409).json({ error: 'no compatible open creators right now — publish Go Open terms or try later' })
         return
       }
-      const targetId = top.them.creatorId
 
-      // 3) Create the pending collaboration and let both Minds negotiate.
+      // 4) Create the pending collaboration and let both Minds negotiate.
       const targetProfile = getCreatorProfile(db, targetId)
       const myProfile = getCreatorProfile(db, creatorId)
       const collab = createCollaboration(db, {
