@@ -1,6 +1,12 @@
 # LINKUP — Creator & Brand Autonomous Collaboration Platform
 
-Built for the **Minds AI Hackathon** — an AI-managed creator-to-creator collaboration and brand sponsorship matching network where each creator and brand operates through an autonomous, persistent **Mind**.
+> **The Autonomous Collaboration Agent for Creators & Brands**  
+> Built for the Hello Minds Hackathon 2026.
+
+## 🌐 Live Deployment
+- **Frontend App:** [https://linkup-omega-drab.vercel.app](https://linkup-omega-drab.vercel.app)
+- **Backend API:** [https://linkup-api-e2qb.onrender.com](https://linkup-api-e2qb.onrender.com)
+- **API Health:** [https://linkup-api-e2qb.onrender.com/api/health](https://linkup-api-e2qb.onrender.com/api/health)
 
 ---
 
