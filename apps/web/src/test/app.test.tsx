@@ -53,25 +53,25 @@ function clickButtonWithText(text: string): void {
 }
 
 async function walkOnboardingToIdentity(): Promise<void> {
-  clickButtonWithText('Start')
+  clickButtonWithText('Initialize Mind')
   await act(async () => {})
   // Step craft
-  clickButtonWithText('Music')
+  clickButtonWithText('Music & Audio')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step platforms
-  clickButtonWithText('YouTube')
+  clickButtonWithText('YouTube (Long)')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step audience
-  clickButtonWithText('~1k')
+  clickButtonWithText('1K - 10K')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step avg views
-  clickButtonWithText('1k-10k')
+  clickButtonWithText('1K - 10K')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
@@ -81,34 +81,34 @@ async function walkOnboardingToIdentity(): Promise<void> {
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step format
-  clickButtonWithText('Long-form video')
+  clickButtonWithText('Deep-Dive Long Form Video')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step frequency
-  clickButtonWithText('Weekly')
+  clickButtonWithText('Weekly Deep-Dives')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step goal
-  clickButtonWithText('Grow my audience')
+  clickButtonWithText('Rapid Audience Cross-Pollination')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step deal terms
-  clickButtonWithText('Open to anything')
+  clickButtonWithText('Dynamic / Mind-Negotiated Custom Terms')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step small creators
-  clickButtonWithText('Yes — talent matters, not size')
+  clickButtonWithText('Brilliant Ideas Over Size')
   await act(async () => {})
   clickButtonWithText('Continue →')
   await act(async () => {})
   // Step vibe
-  clickButtonWithText('Experimental')
+  clickButtonWithText('Wildly Experimental & Boundary-Pushing')
   await act(async () => {})
-  clickButtonWithText('Last step →')
+  clickButtonWithText('Final Step: Claim Identity →')
   await act(async () => {})
 }
 
@@ -151,8 +151,8 @@ describe('auth onboarding flow', () => {
     await act(async () => {
       renderApp()
     })
-    expect(document.body.textContent).toContain('Meet your Mind')
-    expect(document.body.textContent).toContain('Start — it takes 60 seconds')
+    expect(document.body.textContent).toContain('Meet Your Creative Mind')
+    expect(document.body.textContent).toContain('Initialize Mind (60s)')
   })
 
   it('walks the steps, registers with memories, and shows the ready state', async () => {
