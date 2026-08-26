@@ -69,23 +69,53 @@ export default function MindPage() {
   const [hasCompletedGoOpen, setHasCompletedGoOpen] = useState(false)
   const [goOpenPromptModal, setGoOpenPromptModal] = useState(false)
 
+  function checkGoOpenStatus(cId: string) {
+    const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+    const localConfigured =
+      typeof window !== 'undefined' && localStorage.getItem(`linkup_go_open_configured_${cId}`) === 'true'
+
+    fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(cId)}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          setHasCompletedGoOpen(false)
+          return
+        }
+        const card = (await res.json().catch(() => null)) as {
+          openToCollab?: boolean
+          niche?: string
+          platform?: string
+          minRate?: number
+          guardrails?: string
+        } | null
+
+        const isConfigured =
+          localConfigured ||
+          (card !== null &&
+            card.openToCollab === true &&
+            typeof card.niche === 'string' &&
+            card.niche.trim().length > 0 &&
+            typeof card.platform === 'string' &&
+            card.platform.trim().length > 0 &&
+            (Number(card.minRate ?? 0) > 0 || (typeof card.guardrails === 'string' && card.guardrails.trim().length > 0)))
+
+        setHasCompletedGoOpen(Boolean(isConfigured))
+      })
+      .catch(() => {
+        setHasCompletedGoOpen(Boolean(localConfigured))
+      })
+  }
+
   function refreshMindContext() {
     if (!creatorId) return
-    const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
     getMindContext(creatorId)
       .then((ctx) => setContext(ctx))
       .catch(() => {})
-    fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(creatorId)}`)
-      .then((res) => {
-        if (res.ok) setHasCompletedGoOpen(true)
-      })
-      .catch(() => {})
+    checkGoOpenStatus(creatorId)
   }
 
   useEffect(() => {
     if (!creatorId) return
     let cancelled = false
-    const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
     getMindContext(creatorId)
       .then((ctx) => {
         if (!cancelled) setContext(ctx)
@@ -97,11 +127,7 @@ export default function MindPage() {
         if (!cancelled) setLoadingMind(false)
       })
 
-    fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(creatorId)}`)
-      .then((res) => {
-        if (!cancelled && res.ok) setHasCompletedGoOpen(true)
-      })
-      .catch(() => {})
+    checkGoOpenStatus(creatorId)
 
     return () => {
       cancelled = true

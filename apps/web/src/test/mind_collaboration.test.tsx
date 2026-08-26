@@ -18,7 +18,16 @@ function stubFetch(routes: StubRoute[]): Array<{ url: string; init?: RequestInit
       method: 'GET',
       url: '/api/open-collabs/creator-mind',
       status: 200,
-      body: { creatorId: 'creator-mind', openToCollab: true, myFollowers: 5000, minPartnerFollowers: 0 },
+      body: {
+        creatorId: 'creator-mind',
+        openToCollab: true,
+        myFollowers: 5000,
+        minPartnerFollowers: 0,
+        platform: 'Instagram',
+        niche: 'Tech & AI',
+        minRate: 100,
+        guardrails: 'None',
+      },
     },
   ]
   const mergedRoutes = [...routes]

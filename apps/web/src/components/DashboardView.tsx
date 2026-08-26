@@ -266,7 +266,7 @@ export default function DashboardView({
               <h4 className="card-title">Go Open Status</h4>
             </div>
 
-            {!hasCompletedGoOpen && openCard === null ? (
+            {!hasCompletedGoOpen ? (
               <div style={{ padding: '0.5rem 0' }}>
                 <div className="go-open-pill-status" style={{ marginBottom: '0.8rem' }}>
                   <span className="status-indicator is-off" />

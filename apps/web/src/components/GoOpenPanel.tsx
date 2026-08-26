@@ -186,6 +186,13 @@ export default function GoOpenPanel({ creatorId, onClose, onSaved, onSavedAndMat
         return
       }
       setSaved(true)
+      if (typeof window !== 'undefined') {
+        if (openToCollab) {
+          localStorage.setItem(`linkup_go_open_configured_${creatorId}`, 'true')
+        } else {
+          localStorage.removeItem(`linkup_go_open_configured_${creatorId}`)
+        }
+      }
       if (onSaved) {
         onSaved()
       }
