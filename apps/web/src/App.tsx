@@ -6,6 +6,7 @@ import Onboarding from './components/Onboarding'
 import Shell from './components/Shell'
 import { QrSticker, SmileySticker, StarSticker } from './components/Stickers'
 import MindPage from './pages/MindPage'
+import BrandPage from './pages/BrandPage'
 
 type View =
   | { name: 'loading' }
@@ -14,6 +15,10 @@ type View =
 
 function isMindRoute(): boolean {
   return typeof window !== 'undefined' && window.location.pathname === '/mind'
+}
+
+function isBrandRoute(): boolean {
+  return typeof window !== 'undefined' && window.location.pathname === '/brand'
 }
 
 /**
@@ -55,7 +60,7 @@ export default function App() {
   const [view, setView] = useState<View>({ name: 'loading' })
 
   useEffect(() => {
-    if (isMindRoute()) return
+    if (isMindRoute() || isBrandRoute()) return
     let cancelled = false
     async function boot() {
       try {
@@ -81,6 +86,10 @@ export default function App() {
       cancelled = true
     }
   }, [])
+
+  if (isBrandRoute()) {
+    return <BrandPage />
+  }
 
   if (isMindRoute()) {
     return <MindPage />
@@ -123,6 +132,12 @@ export default function App() {
               <li>Matching</li>
               <li>Collaboration</li>
             </ul>
+
+            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.8rem' }}>
+              <a className="btn btn-ghost" href="/brand">
+                For Brands & Sponsors ↗
+              </a>
+            </div>
           </div>
 
           <div className="hero-side">

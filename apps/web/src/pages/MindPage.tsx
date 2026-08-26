@@ -9,14 +9,23 @@ import ProposeCollaborationPanel from '../components/ProposeCollaborationPanel'
 import MatchFeed from '../components/MatchFeed'
 import NegotiationLive from '../components/NegotiationLive'
 import GoOpenPanel from '../components/GoOpenPanel'
+import DashboardView from '../components/DashboardView'
 
-type Message = { id?: string; role: 'user' | 'mind'; content: string }
+type Message = { id?: string; role: 'user' | 'mind'; content: string; time?: string }
 
 const SUGGESTIONS = [
   'What kind of creators are a good fit for me?',
   'What does my Mind know about me?',
   'What collaborations should I consider?',
   'What should I avoid in a collaboration?',
+]
+
+const QUICK_PROMPTS = [
+  'Which deal is best for me right now?',
+  'Show my current negotiations and terms',
+  'What are my non-negotiable guardrails?',
+  'What kind of creators are a good fit for me?',
+  'What collaborations should I avoid?',
 ]
 
 function friendlyError(err: unknown): string {
@@ -49,12 +58,20 @@ export default function MindPage() {
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState('')
   const [memorySearchEnabled, setMemorySearchEnabled] = useState(false)
-  const [section, setSection] = useState<'chat' | 'matches' | 'negotiations' | 'open'>('chat')
+  const [showQuickMenu, setShowQuickMenu] = useState(false)
+  const [section, setSection] = useState<'dashboard' | 'chat' | 'matches' | 'negotiations' | 'open'>('chat')
   const [proposeOpen, setProposeOpen] = useState(false)
   const [pendingMatchId, setPendingMatchId] = useState<string | null>(null)
   const [liveNegotiation, setLiveNegotiation] = useState<{ targetId?: string; targetName?: string } | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+
+  function refreshMindContext() {
+    if (!creatorId) return
+    getMindContext(creatorId)
+      .then((ctx) => setContext(ctx))
+      .catch(() => {})
+  }
 
   useEffect(() => {
     if (!creatorId) return
@@ -84,6 +101,7 @@ export default function MindPage() {
           id: i.id,
           role: i.role,
           content: i.content,
+          time: new Date(i.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }))
         setMessages(msgs)
       })
@@ -109,25 +127,27 @@ export default function MindPage() {
     if (trimmed === '' || sending || !creatorId) return
     setQueryError('')
     setSaveSuccess('')
-    setMessages((prev) => [...prev, { role: 'user', content: trimmed }])
+    setShowQuickMenu(false)
+    const nowStamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    setMessages((prev) => [...prev, { role: 'user', content: trimmed, time: nowStamp }])
     setInput('')
     setSending(true)
     try {
       const res = await queryMind(creatorId, trimmed, {
         memorySearch: memorySearchEnabled ? trimmed : undefined,
       })
-      setMessages((prev) => [...prev, { role: 'mind', content: res.answer }])
-      // Refresh history to get persisted ids without blocking UI
+      setMessages((prev) => [...prev, { role: 'mind', content: res.answer, time: nowStamp }])
       try {
         const history = await listMindHistory(creatorId, { limit: 100 })
         const msgs: Message[] = history.interactions.map((i) => ({
           id: i.id,
           role: i.role,
           content: i.content,
+          time: new Date(i.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }))
         setMessages(msgs)
       } catch {
-        // Keep optimistic messages if history fetch fails
+        // Keep optimistic messages
       }
     } catch (err) {
       setQueryError(friendlyError(err))
@@ -135,6 +155,11 @@ export default function MindPage() {
       setSending(false)
       inputRef.current?.focus()
     }
+  }
+
+  function clearChat() {
+    setMessages([])
+    setShowQuickMenu(false)
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -175,12 +200,11 @@ export default function MindPage() {
         content: saveContent.trim(),
       })
       setSaveSuccess('Saved to Mind')
-      // Optionally refresh context to show new memory count
       try {
         const ctx = await getMindContext(creatorId)
         setContext(ctx)
       } catch {
-        // ignore refresh failure
+        // ignore
       }
     } catch (err) {
       setSaveError(friendlyError(err))
@@ -246,7 +270,7 @@ export default function MindPage() {
   const creator = context.creator
 
   return (
-    <Shell>
+    <Shell onNavigateTab={(sec) => setSection(sec)}>
       <main className="mind-page">
         <header className="mind-header">
           <div className="mind-id">
@@ -257,6 +281,7 @@ export default function MindPage() {
               <div className="mind-title-row">
                 <h1 className="mind-title">{creator.displayName}</h1>
                 <span className="badge">Mind</span>
+                <span className="mind-status-indicator">● Online & Matching</span>
               </div>
               {creator.bio && <p className="mind-bio">{creator.bio}</p>}
             </div>
@@ -294,6 +319,7 @@ export default function MindPage() {
           {(
             [
               ['chat', 'Chat'],
+              ['dashboard', 'Dashboard'],
               ['matches', 'Matches'],
               ['negotiations', 'Negotiations'],
               ['open', 'Go Open'],
@@ -321,21 +347,33 @@ export default function MindPage() {
               targetName={liveNegotiation.targetName}
               onClose={() => {
                 setLiveNegotiation(null)
-                getMindContext(creatorId)
-                  .then((ctx) => setContext(ctx))
-                  .catch(() => {})
+                refreshMindContext()
+              }}
+              onCompleted={() => {
+                refreshMindContext()
               }}
             />
           </section>
         ) : (
           <>
+            {section === 'dashboard' && (
+              <DashboardView
+                creatorId={creatorId}
+                context={context}
+                onOpenGoOpen={() => setSection('open')}
+                onOpenLiveNegotiation={(tId, tName) => {
+                  setLiveNegotiation({ targetId: tId, targetName: tName })
+                }}
+                onOpenChat={() => setSection('chat')}
+                onRefreshContext={refreshMindContext}
+              />
+            )}
+
             {section === 'matches' && (
               <section className="collab-section">
                 <MatchFeed
                   creatorId={creatorId}
                   onCollab={(match) => {
-                    // Collab on a match: switch to negotiations with this
-                    // creator pre-selected as the proposal target.
                     setSection('negotiations')
                     setProposeOpen(true)
                     setPendingMatchId(match.creator.creatorId)
@@ -365,10 +403,7 @@ export default function MindPage() {
                         : context.matches.matches
                     }
                     onCreated={() => {
-                      // Refresh context so header stats reflect the new collaboration
-                      getMindContext(creatorId)
-                        .then((ctx) => setContext(ctx))
-                        .catch(() => {})
+                      refreshMindContext()
                     }}
                     onClose={() => setProposeOpen(false)}
                   />
@@ -377,181 +412,242 @@ export default function MindPage() {
                 <CollaborationNegotiationPanel
                   creatorId={creatorId}
                   collaborations={context.collaborations.collaborations}
-                  onChanged={() => {
-                    getMindContext(creatorId)
-                      .then((ctx) => setContext(ctx))
-                      .catch(() => {})
-                  }}
+                  onChanged={refreshMindContext}
                 />
               </section>
             )}
 
             {section === 'open' && (
               <section className="collab-section">
-                <GoOpenPanel creatorId={creatorId} onClose={() => setSection('chat')} />
+                <GoOpenPanel
+                  creatorId={creatorId}
+                  onClose={() => setSection('dashboard')}
+                  onSavedAndMatch={() => {
+                    setLiveNegotiation({})
+                  }}
+                />
               </section>
             )}
 
             {section === 'chat' && (
-              <section className="mind-chat" aria-label="Conversation">
-          {historyLoading ? (
-            <div className="mind-messages" aria-label="Loading history">
-              <div className="skeleton-line" />
-              <div className="skeleton-line" style={{ width: '80%' }} />
-            </div>
-          ) : (
-            <div className="mind-messages" ref={listRef} role="log" aria-live="polite" aria-relevant="additions">
-              {messages.length === 0 ? (
-                <div className="mind-empty-chat">
-                  <p className="mind-empty-kicker" aria-hidden="true">
-                    N°003 — Conversation
-                  </p>
-                  <p className="mind-empty-title">Ask your Mind</p>
-                  <p className="mind-empty-subtitle">Your Mind knows your memories, matches, collaborations and outcomes.</p>
-                  <ul className="mind-suggestions" aria-label="Suggested questions">
-                    {SUGGESTIONS.map((q, i) => (
-                      <li key={q}>
-                        <button
-                          type="button"
-                          className="mind-suggestion"
-                          onClick={() => void sendQuery(q)}
-                          disabled={sending}
-                        >
-                          <span className="mind-suggestion-index" aria-hidden="true">
-                            {String(i + 1).padStart(2, '0')}
-                          </span>
-                          {q}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                messages.map((m, i) => (
-                  <div key={m.id ?? `${m.role}-${i}`} className={`mind-message mind-message--${m.role}`}>
-                    <div className="mind-bubble">
-                      {m.content}
-                      {m.role === 'mind' && m.id && (
-                        <div className="mind-bubble-actions">
-                          <button
-                            type="button"
-                            className="mind-save-btn"
-                            onClick={() => openSave(m.id, m.content)}
-                            aria-label={`Save to Mind: ${m.content.slice(0, 30)}`}
-                          >
-                            Save to Mind
-                          </button>
-                        </div>
-                      )}
+              <section className="mind-chat card" aria-label="Own Mind Conversation">
+                {/* Own-Mind Header */}
+                <div className="own-mind-header">
+                  <div className="own-mind-id-row">
+                    <span className="own-mind-avatar">
+                      {creator.displayName.trim().charAt(0).toUpperCase() || 'M'}
+                    </span>
+                    <div>
+                      <h3 className="own-mind-title">{creator.displayName}&apos;s Mind</h3>
+                      <span className="own-mind-status">● Online & Ready for Decision Support</span>
                     </div>
                   </div>
-                ))
-              )}
-              {sending && (
-                <div className="mind-message mind-message--mind">
-                  <div className="mind-bubble mind-bubble--loading" aria-label="Mind is thinking">
-                    <span className="dot" />
-                    <span className="dot" />
-                    <span className="dot" />
+                  <div className="own-mind-actions">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost"
+                      onClick={() => setShowQuickMenu((prev) => !prev)}
+                    >
+                      ⚡ Quick Prompts ▾
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost"
+                      onClick={clearChat}
+                      disabled={messages.length === 0}
+                    >
+                      Clear Chat
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
 
-          {saveTargetId && (
-            <form className="mind-save-form" onSubmit={handleSave} aria-label="Save to Mind">
-              <h3 className="mind-save-title">Save to Mind</h3>
-              <label className="field">
-                <span className="field-label">Category</span>
-                <select
-                  className="field-input"
-                  value={saveCategory}
-                  onChange={(e) => setSaveCategory(e.target.value as MemoryCategory)}
-                  aria-label="Memory category"
-                >
-                  {MEMORY_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span className="field-label">Content</span>
-                <textarea
-                  className="field-input"
-                  value={saveContent}
-                  onChange={(e) => setSaveContent(e.target.value)}
-                  rows={3}
-                  maxLength={10000}
-                  aria-label="Memory content"
-                />
-              </label>
-              {saveError && (
-                <p className="form-error" role="alert">
-                  {saveError}
-                </p>
-              )}
-              {saveSuccess && (
-                <p className="form-success" role="status">
-                  {saveSuccess}
-                </p>
-              )}
-              <div className="mind-save-actions">
-                <button type="submit" className="btn" disabled={saveLoading}>
-                  {saveLoading ? 'Saving…' : 'Save'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setSaveTargetId(null)}
-                  disabled={saveLoading}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
+                {/* Quick Prompts Dropdown */}
+                {showQuickMenu && (
+                  <div className="quick-prompts-menu" role="menu">
+                    <p className="quick-prompts-title">Decision Support Prompts:</p>
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        className="quick-prompt-item"
+                        onClick={() => void sendQuery(prompt)}
+                        disabled={sending}
+                      >
+                        → {prompt}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-          {queryError && (
-            <p className="mind-query-error" role="alert">
-              {queryError}
-            </p>
-          )}
+                {historyLoading ? (
+                  <div className="mind-messages" aria-label="Loading history">
+                    <div className="skeleton-line" />
+                    <div className="skeleton-line" style={{ width: '80%' }} />
+                  </div>
+                ) : (
+                  <div className="mind-messages" ref={listRef} role="log" aria-live="polite" aria-relevant="additions">
+                    {messages.length === 0 ? (
+                      <div className="mind-empty-chat">
+                        <p className="mind-empty-kicker" aria-hidden="true">
+                          N°003 — Decision Support
+                        </p>
+                        <p className="mind-empty-title">Ask your Personal Mind</p>
+                        <p className="mind-empty-subtitle">
+                          Your Mind remembers your guardrails, negotiates on your behalf, and advises you on which deal to pick.
+                        </p>
+                        <ul className="mind-suggestions" aria-label="Suggested questions">
+                          {SUGGESTIONS.map((q, i) => (
+                            <li key={q}>
+                              <button
+                                type="button"
+                                className="mind-suggestion"
+                                onClick={() => void sendQuery(q)}
+                                disabled={sending}
+                              >
+                                <span className="mind-suggestion-index" aria-hidden="true">
+                                  {String(i + 1).padStart(2, '0')}
+                                </span>
+                                {q}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      messages.map((m, i) => (
+                        <div key={m.id ?? `${m.role}-${i}`} className={`mind-message mind-message--${m.role}`}>
+                          <div className="mind-bubble">
+                            <p className="mind-bubble-text">{m.content}</p>
+                            <div className="mind-bubble-footer">
+                              {m.time && <span className="mind-bubble-time">{m.time}</span>}
+                              {m.role === 'mind' && m.id && (
+                                <button
+                                  type="button"
+                                  className="mind-save-btn"
+                                  onClick={() => openSave(m.id, m.content)}
+                                  aria-label={`Save to Mind: ${m.content.slice(0, 30)}`}
+                                >
+                                  Save to Mind
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    {sending && (
+                      <div className="mind-message mind-message--mind">
+                        <div className="mind-bubble mind-bubble--loading mind-typing-indicator" aria-label="Mind is typing…">
+                          <span className="typing-text">Mind is typing</span>
+                          <span className="dot" />
+                          <span className="dot" />
+                          <span className="dot" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-          <form className="mind-input-row" onSubmit={handleSubmit} aria-label="Ask your Mind">
-            <label htmlFor="mind-query" className="sr-only">
-              Ask your Mind
-            </label>
-            <textarea
-              id="mind-query"
-              ref={inputRef}
-              className="mind-input"
-              placeholder="Ask your Mind…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              maxLength={10000}
-              disabled={sending}
-              aria-label="Ask your Mind"
-            />
-            <button type="submit" className="btn mind-send" disabled={sending || input.trim() === ''} aria-label="Send query">
-              {sending ? 'Sending…' : 'Send ↗'}
-            </button>
-          </form>
-          <label className="mind-search-toggle">
-            <input
-              type="checkbox"
-              checked={memorySearchEnabled}
-              onChange={(e) => setMemorySearchEnabled(e.target.checked)}
-              aria-label="Search my memories for this question"
-            />
-            Search my memories for this question
-          </label>
-          <p className="mind-hint">Enter to send · Shift+Enter for newline</p>
-            </section>
+                {saveTargetId && (
+                  <form className="mind-save-form" onSubmit={handleSave} aria-label="Save to Mind">
+                    <h3 className="mind-save-title">Save to Mind Memory</h3>
+                    <label className="field">
+                      <span className="field-label">Category</span>
+                      <select
+                        className="field-input"
+                        value={saveCategory}
+                        onChange={(e) => setSaveCategory(e.target.value as MemoryCategory)}
+                        aria-label="Memory category"
+                      >
+                        {MEMORY_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span className="field-label">Content</span>
+                      <textarea
+                        className="field-input"
+                        value={saveContent}
+                        onChange={(e) => setSaveContent(e.target.value)}
+                        rows={3}
+                        maxLength={10000}
+                        aria-label="Memory content"
+                      />
+                    </label>
+                    {saveError && (
+                      <p className="form-error" role="alert">
+                        {saveError}
+                      </p>
+                    )}
+                    {saveSuccess && (
+                      <p className="form-success" role="status">
+                        {saveSuccess}
+                      </p>
+                    )}
+                    <div className="mind-save-actions">
+                      <button type="submit" className="btn btn-primary" disabled={saveLoading}>
+                        {saveLoading ? 'Saving…' : 'Save Memory'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => setSaveTargetId(null)}
+                        disabled={saveLoading}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {queryError && (
+                  <p className="mind-query-error" role="alert">
+                    {queryError}
+                  </p>
+                )}
+
+                <form className="mind-input-row" onSubmit={handleSubmit} aria-label="Ask your Mind">
+                  <label htmlFor="mind-query" className="sr-only">
+                    Ask your Mind
+                  </label>
+                  <textarea
+                    id="mind-query"
+                    ref={inputRef}
+                    className="mind-input"
+                    placeholder="Ask your Mind… (e.g. Which deal is best? What are my guardrails?)"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    rows={1}
+                    maxLength={10000}
+                    disabled={sending}
+                    aria-label="Ask your Mind"
+                  />
+                  <button
+                    type="submit"
+                    className="btn btn-primary mind-send"
+                    disabled={sending || input.trim() === ''}
+                    aria-label="Send query"
+                  >
+                    {sending ? 'Sending…' : 'Send ↗'}
+                  </button>
+                </form>
+                <div className="mind-bottom-row">
+                  <label className="mind-search-toggle">
+                    <input
+                      type="checkbox"
+                      checked={memorySearchEnabled}
+                      onChange={(e) => setMemorySearchEnabled(e.target.checked)}
+                      aria-label="Search my memories for this question"
+                    />
+                    Search my memories for this question
+                  </label>
+                  <p className="mind-hint">Enter to send · Shift+Enter for newline</p>
+                </div>
+              </section>
             )}
           </>
         )}

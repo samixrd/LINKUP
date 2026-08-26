@@ -21,10 +21,12 @@ describe('database foundation', () => {
       '0013_profile_details.sql',
       '0014_partner_preferences.sql',
       '0015_creator_depth.sql',
+      '0016_linkup_spec_upgrade.sql',
+      '0017_brand_portal.sql',
     ])
 
     const rows = db.prepare('SELECT version FROM schema_migrations').all()
-    expect(rows).toHaveLength(15)
+    expect(rows).toHaveLength(17)
     db.close()
   })
 

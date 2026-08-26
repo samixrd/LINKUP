@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getHealth } from '../api'
+import NotificationPanel from './NotificationPanel'
 
 type ApiStatus = 'checking' | 'online' | 'offline'
 
@@ -46,31 +47,59 @@ function formatStamp(now: Date): string {
   return `${date} — ${time}`
 }
 
+interface ShellProps {
+  children: ReactNode
+  onNavigateTab?: (section: 'dashboard' | 'chat' | 'matches' | 'negotiations' | 'open') => void
+}
+
 /**
- * Shared page chrome: the thin viewport frame, the header (logo + primary nav)
- * and the footer meta bar with a live API status chip. Contains no forms or
- * text inputs so it never interferes with page-level query selectors.
+ * Shared page chrome with in-UI notification box/panel & navigation.
  */
-export default function Shell({ children }: { children: ReactNode }) {
+export default function Shell({ children, onNavigateTab }: ShellProps) {
   const apiStatus = useApiStatus()
   const now = useClockTick()
   const onMind = typeof window !== 'undefined' && window.location.pathname === '/mind'
+  const onBrand = typeof window !== 'undefined' && window.location.pathname === '/brand'
+  const [notifsOpen, setNotifsOpen] = useState(false)
   const statusLabel =
     apiStatus === 'online' ? 'API online' : apiStatus === 'offline' ? 'API offline' : 'API checking'
+
   return (
     <div className="shell">
       <header className="site-header">
         <a className="site-logo" href="/" aria-label="LINKUP home">
           LINKUP<span className="site-logo-star" aria-hidden="true">*</span>
         </a>
-        <nav className="site-nav" aria-label="Primary">
-          <a href="/" className={onMind ? undefined : 'is-active'} aria-current={onMind ? undefined : 'page'}>
-            Setup
-          </a>
-          <a href="/mind" className={onMind ? 'is-active' : undefined} aria-current={onMind ? 'page' : undefined}>
-            Mind Chat
-          </a>
-        </nav>
+        <div className="site-header-right">
+          <nav className="site-nav" aria-label="Primary">
+            <a href="/" className={!onMind && !onBrand ? 'is-active' : undefined} aria-current={!onMind && !onBrand ? 'page' : undefined}>
+              Setup
+            </a>
+            <a href="/mind" className={onMind ? 'is-active' : undefined} aria-current={onMind ? 'page' : undefined}>
+              Dashboard & Mind
+            </a>
+            <a href="/brand" className={onBrand ? 'is-active' : undefined} aria-current={onBrand ? 'page' : undefined}>
+              Brand Portal ⚡
+            </a>
+          </nav>
+          <div className="notif-anchor">
+            <button
+              type="button"
+              className={`btn-notif ${notifsOpen ? 'is-active' : ''}`}
+              onClick={() => setNotifsOpen((prev) => !prev)}
+              aria-label="Toggle notifications panel"
+            >
+              🔔 <span className="notif-badge-pill">2</span>
+            </button>
+            <NotificationPanel
+              isOpen={notifsOpen}
+              onClose={() => setNotifsOpen(false)}
+              onSelectSection={(sec) => {
+                if (onNavigateTab) onNavigateTab(sec)
+              }}
+            />
+          </div>
+        </div>
       </header>
       {children}
       <footer className="site-footer">

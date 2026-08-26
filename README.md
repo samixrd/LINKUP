@@ -1,129 +1,220 @@
-# LINKUP
+# LINKUP — Creator & Brand Autonomous Collaboration Platform
 
-A creator-focused persistent **Mind** product built for the Creative Minds Jam.
-
-A creator has a persistent Mind that remembers their preferences and history,
-discovers compatible creators, and helps negotiate collaborations. The Mind
-acts as a **personal bot** — you ask it plain questions about potential
-partners, and it gives honest strategy advice, fit analysis, and concrete
-collaboration ideas. One click starts an autonomous negotiation flow: your
-Mind gives the strategy, LINKUP represents the partner via their published
-terms, and you approve the final deal.
-
-> **Status:** all features are live. Onboarding, persistent per-creator memory
-> (with semantic search), discovery & matching, Mind queries against the real
-> Hello Minds provider (env-gated, with a safe stub fallback), collaborations
-> with follow-ups, two-sided negotiation (counter + history), autonomous
-> **find-collab** flow (one-click Mind strategy + partner terms-agent), and
-> structured Mind decision layer (accept/reject/counter with reasoning) are
-> implemented and tested end to end. The production readiness audit (config
-> validation, Node ≥22 alignment, mocked-provider contract tests, no-leak
-> guarantees, human-confirmed mutations) is complete.
+Built for the **Minds AI Hackathon** — an AI-managed creator-to-creator collaboration and brand sponsorship matching network where each creator and brand operates through an autonomous, persistent **Mind**.
 
 ---
 
-## Stack
+## 🌟 Vision & Core Concept
 
-| Layer     | Choice                                            |
-| --------- | ------------------------------------------------- |
-| Frontend  | Vite + React 19 (TypeScript, strict)              |
-| API       | Express 5 (TypeScript, strict, ESM)               |
-| Database  | SQLite via better-sqlite3, hand-rolled migrations |
-| Tests     | Vitest (per-package projects: db / api / web)     |
-| Lint      | ESLint 10 (flat config) + Prettier                |
-| Workspace | npm workspaces monorepo                           |
+1. **Every Creator has a Personal Mind**:
+   - Onboarded via personal background, content niche, platform metrics, and non-negotiable boundaries.
+   - The Mind remembers past interactions, acts as a personal decision-support advisor, and negotiates terms autonomously on the creator's behalf.
+2. **Autonomous Negotiation (Mind-to-Mind & Brand-to-Mind)**:
+   - Minds handle the multi-round back-and-forth negotiation (`Draft` → `Countering` → `Agreed` / `Paused`).
+   - Humans only step in to set guardrails and sign off on the final agreement (or use the **"Take Over"** button to chat directly).
+3. **Escrow Vault & Quality Protection**:
+   - 2-Party Signatures lock the collaboration deal into an escrow state.
+   - Deliverable submission checklists verify live content links before auto-releasing funds, with integrated Quality Dispute routing.
+4. **Brand Ads Portal (`/brand`)**:
+   - Dedicated portal for commercial advertisers and sponsors to publish campaign briefs (Niche, Follower Floor, Target Avg Views, Content Type, Language, Budget).
+   - Direct connection to creators who enable **"⚡ Open for Brands too"** in their **Go Open** settings.
 
-Dependencies are intentionally minimal: React, Express, better-sqlite3, and
-`@animocabrands/minds-client-lib` (for real Mind queries) as the runtime
-dependencies, with standard dev tooling around them. No ORM, no
-state-management library, no CSS framework — each is added only when a feature
-actually needs it.
+---
 
-## Repository layout
+## 🏗 Full Architecture & System Diagram
 
+```mermaid
+graph TD
+    subgraph Frontend ["Frontend (Vite + React 19)"]
+        Landing["Landing Page /"]
+        Onboarding["12-Step Creator Onboarding"]
+        MindUI["Mind Chat & Decision Support /mind"]
+        Dashboard["Rich Dashboard: 4 Metric Cards + Pipeline Feed"]
+        GoOpen["Go Open Criteria (Niche, Followers, Rate, Guardrails, Open for Brands)"]
+        BrandPortal["Brand Ads Portal /brand (Campaign Briefs & Pitch)"]
+        Escrow["Escrow Vault & Deliverable Checklists"]
+        Notifications["In-UI Header Notification Drawer"]
+    end
+
+    subgraph Backend ["Backend API (Express 5 ESM)"]
+        ApiRouter["Express Router /api"]
+        AuthService["PIN Auth & Session Engine"]
+        ProfileService["Creator Profile & Memory Store"]
+        NegotiationEngine["Autonomous Negotiation Engine"]
+        BrandEngine["Brand Match & Campaign Filter"]
+        EscrowService["Escrow Lock & Deliverables Tracker"]
+        MindsAdapter["Hello Minds Provider / Groq Fallback / Stub"]
+    end
+
+    subgraph Database ["Persistence Layer (SQLite + better-sqlite3)"]
+        DB[(linkup.db)]
+        Migrations["Migrations 0001 - 0017"]
+        CreatorsTbl[creators / memories]
+        OpenCollabsTbl[open_collabs: terms, guardrails, open_for_brands]
+        CollabsTbl[collaborations / collaboration_proposals]
+        EscrowTbl[collab_escrows / collab_submissions]
+        BrandTbl[brand_campaigns / brand_proposals]
+    end
+
+    Landing --> Onboarding
+    Onboarding --> MindUI
+    MindUI <--> Dashboard
+    Dashboard <--> GoOpen
+    Landing --> BrandPortal
+    
+    MindUI <--> ApiRouter
+    BrandPortal <--> ApiRouter
+    GoOpen <--> ApiRouter
+    Escrow <--> ApiRouter
+
+    ApiRouter <--> AuthService
+    ApiRouter <--> ProfileService
+    ApiRouter <--> NegotiationEngine
+    ApiRouter <--> BrandEngine
+    ApiRouter <--> EscrowService
+    ApiRouter <--> MindsAdapter
+
+    ProfileService <--> DB
+    NegotiationEngine <--> DB
+    BrandEngine <--> DB
+    EscrowService <--> DB
 ```
-apps/
-  api/        Express server — creators / mind / memory / collaborations /
-              open-collabs routes, Minds provider adapter, serves the built web app
-  web/        Vite + React frontend — landing page, onboarding, Mind page
-              (chat + find-collab + live negotiation viewer), dev proxy to the API
-packages/
-  db/         Database layer — SQLite connection, migration runner, migrations/
-scripts/
-  seed-demo-creators.ts   Idempotent seed: 8 demo creators with full profiles
-                          + open-collab cards
-  list-minds.mjs          List the account's Hello Minds (debug)
-  dump-thread.mjs         Dump a Mind conversation thread with fingerprints (debug;
-                          FULL=1 for full message text)
-  smoke.mjs               Production smoke test against the built API
-```
 
-Layering rule: `web` → `api` → `db`. `web` and `api` never talk to the
-database directly; `db` never knows about HTTP or UI.
+---
 
-## Prerequisites
+## 🧩 Key Subsystems
 
-- Node.js ≥ 22 (enforced by `package.json#engines` and `apps/api/src/runtime.ts#MIN_NODE_VERSION`; `@animocabrands/minds-client-lib` also declares `>=22`, verified in audit)
-- npm ≥ 10
+### 1. Go Open Form (Matching Criteria)
+Creators publish real-time matching parameters:
+- **Primary Platform & Followers**: Dropdown (`Instagram`, `YouTube`, `TikTok`, `Twitch`, `X`, `Other`) + follower floor.
+- **Niche & Category**: Dropdown (Tech & AI, Gaming, Music, Fashion, Lifestyle, Education, etc.).
+- **Min Rate & Collab Types**: Multi-select (`Paid`, `Barter`, `Affiliate`, `UGC`).
+- **Availability Window**: Date range selector.
+- **⚡ Open for Brands too**: Toggle allowing brands to discover the creator in the Brand Portal, with custom minimum sponsorship ad rates.
+- **Non-Negotiable Guardrails**: Hard limits that the AI Mind is strictly prohibited from conceding on during negotiations.
 
-> Note: this environment's npm blocks install scripts by default. If you hit
-> issues with `better-sqlite3`/`esbuild`, approve their scripts once:
-> `npm install-scripts approve better-sqlite3 esbuild`
+### 2. Autonomous Deal Pipeline & Dashboard
+- **4 Metric Cards**:
+  - `Active Negotiations` (AI-to-AI counters in progress)
+  - `Pending Sign-offs ⚠️` (Emphasized alert for deals awaiting human signature)
+  - `Completed Collabs` (Escrow auto-released)
+  - `New Matches` (Threshold-compatible creators)
+- **Negotiation Feed**: Live deal rows with stage badges (`Draft`, `Countering`, `Agreed`), AI proposal summaries, `Transcript`, `Take Over ✋`, and `Escrow Vault 🔒`.
+- **Recent Activity Audit Trail**: Chronological log of matches, counters, and boundary conflict checks.
 
-## Getting started
+### 3. Own-Mind Chat Box
+- Header avatar monogram, online status indicator (`● Online & Ready for Decision Support`).
+- Message thread with timestamps and "Save to Mind" memory capture.
+- `⚡ Quick Prompts ▾` menu (*"Which deal is best for me right now?"*, *"Show my current negotiations"*, *"What are my non-negotiable guardrails?"*).
 
+### 4. Brand Ads Portal (`/brand`)
+- **Campaign Specs Builder**: Brand Name, Campaign Title, Target Niche, Platform, Min Followers, Target Avg Views, Content Ad Format (Dedicated Reel, YouTube Integration, Full Video, UGC Creative), Language, and Budget per Creator ($).
+- **Matching Creator Feed**: Real-time filtered grid of creators matching the brand's criteria with instant one-click **"Send Sponsorship Offer ⚡"** dispatching proposals to the creator's Mind.
+
+### 5. Agreement & Escrow Demo Flow
+- Complete workflow: **Match → AI Negotiation → 2-User Signature → Escrow Lock → Deliverable Link Submissions → Auto-Release / Quality Dispute Flag**.
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Choice |
+| --- | --- |
+| **Frontend** | Vite, React 19 (TypeScript, strict), CSS Custom Properties (Editorial Brutalist design) |
+| **Backend** | Express 5 (TypeScript, strict ESM), Hello Minds Provider Adapter |
+| **Database** | SQLite via `better-sqlite3`, 17 hand-rolled migrations |
+| **Testing** | Vitest (568 tests across db, api, web) |
+| **Monorepo** | npm workspaces (`apps/api`, `apps/web`, `packages/db`) |
+
+---
+
+## ⚡ Step-by-Step Setup Guide (For Judges & Reviewers)
+
+Follow these steps to run the complete LINKUP project locally from a fresh clone:
+
+### 1. Prerequisites
+- **Node.js**: `v22.0.0` or higher (`node -v`)
+- **npm**: `v10.0.0` or higher (`npm -v`)
+- **Git**
+
+### 2. Clone the Repository
 ```bash
-npm install          # install all workspaces
-npm run dev          # database watch + API (:3001) + web (:5173)
+git clone https://github.com/<your-username>/linkup.git
+cd linkup
 ```
 
-Open http://localhost:5173 — the landing page pings `/api/health` (proxied to
-the API) and shows live database status.
+### 3. Install Dependencies
+```bash
+npm install
+```
+*(If prompted by npm about native build tools like `better-sqlite3`, run: `npm install-scripts approve better-sqlite3 esbuild`)*
 
-## Scripts
+### 4. Configure Environment Variables (Optional)
+Copy `.env.example` to `.env` in the root folder:
+```bash
+cp .env.example .env
+```
+Default values work out of the box with the **Safe Local Stub Fallback**. If you have Hello Minds or Groq API keys:
+```env
+PORT=3000
+NODE_ENV=development
+DATABASE_PATH=packages/db/data/linkup.db
 
-| Command             | What it does                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------- |
-| `npm run dev`       | Run db watcher + API + web dev servers concurrently                                      |
-| `npm run typecheck` | `tsc --noEmit` across all packages                                                       |
-| `npm test`          | Vitest run (db, api, web projects)                                                       |
-| `npm run lint`      | ESLint over the whole repo                                                               |
-| `npm run format`    | Prettier write                                                                           |
-| `npm run build`     | Build db → api → web (in dependency order)                                               |
-| `npm start`         | Run the built API (serves the built web app)                                             |
-| `npm run smoke`     | Build, then boot the built API and verify health + the no-credentials Minds 503 fallback + production dummy-credentials health (no real Minds request) + invalid `MINDS_REPLY_TIMEOUT_MS` rejection |
+# (Optional) Hello Minds Builder Credentials
+MINDS_BUILDER_API_KEY=your_builder_api_key_here
+MINDS_MIND_ID=your_mind_id_here
 
-Production-style run: `npm run build && npm start` → open
-http://localhost:3001.
+# (Optional) Groq Fast Fallback
+GROQ_API_KEY=your_groq_api_key_here
+```
 
-## Configuration
+### 5. Seed Demo Creators & Open Collab Cards
+To explore the platform with pre-populated creators across different niches (Tech, Gaming, Music, Fashion):
+```bash
+npx tsx scripts/seed-demo-creators.ts
+```
 
-Copy `.env.example` to `.env` to override defaults:
+### 6. Start Development Servers
+Run the database builder, Express API, and Vite web server concurrently with a single command:
+```bash
+npm run dev
+```
 
-- `PORT` — API port (default `3001`, validated 1–65535)
-- `NODE_ENV` — `development` | `test` | `production` (strict)
-- `DATABASE_PATH` — SQLite file (defaults to `packages/db/data/linkup.db`)
-- `MINDS_BUILDER_API_KEY` / `MINDS_MIND_ID` — Hello Minds provider credentials
-  (optional, trimmed; whitespace-only treated as unset). When both are set,
-  Mind queries go to the real provider via `resolveMindAdapter`; otherwise the
-  API falls back to `stubMindAdapter` and `POST /mind/query` (and all Mind
-  collaboration/negotiation/decision endpoints) return `503` with
-  `Minds adapter not configured` and never leak the key. Get a Builder API key
-  at build.hellominds.ai/console. Env names match `BUILDER_API_KEY_ENV` from
-  `@animocabrands/minds-client-lib`.
-- `MINDS_REPLY_TIMEOUT_MS` — how long to wait for a Mind reply before timing
-  out (default `120000`, must be a positive integer; invalid values fail fast
-  at startup with `MINDS_REPLY_TIMEOUT_MS` named in the error and without
-  echoing any secret).
-- `GROQ_API_KEY` / `GROQ_MODEL` — optional **Groq fallback Mind**. When Minds
-  credit is low, the Mind is slow, or Minds is unconfigured, the app answers
-  from Groq's chat completions (`openai/gpt-oss-120b` by default). Resolution:
-  Minds + Groq → Minds first, Groq on any failure (Minds wait capped at 60s);
-  Groq only → direct; neither → stub `503`.
+### 7. Access the Applications
+Open your browser to:
+- **Creator Dashboard & Own-Mind Chat**: [http://localhost:5173/mind](http://localhost:5173/mind)
+- **Brand Ads Portal**: [http://localhost:5173/brand](http://localhost:5173/brand)
+- **Creator Onboarding / Login**: [http://localhost:5173/](http://localhost:5173/)
+- **Backend API Health Check**: [http://localhost:3000/api/health](http://localhost:3000/api/health)
 
-All Minds config is loaded via `apps/api/src/config.ts` (`loadConfig` + `parsePositiveInteger`) and validated before the server listens. `apps/api/src/runtime.ts` (`assertSupportedNodeVersion`) fails fast if `process.versions.node` < `22.0.0`.
+---
 
-The database is created and migrated automatically on API startup.
+## 🎬 3-Minute Hackathon Demo Walkthrough
+
+1. **Creator Onboarding & Mind Creation** ([http://localhost:5173/](http://localhost:5173/)):
+   - Complete the 12-question persona questionnaire to train your Mind with personal style, topics, and boundaries.
+2. **Go Open & Matching** ([http://localhost:5173/mind](http://localhost:5173/mind) → `Go Open` tab):
+   - Choose your platform (`Instagram`, `YouTube`, etc.), niche, minimum rate, availability window, and toggle **"⚡ Open for Brands too"**.
+   - Click **"Save & Start Matching ⚡"**.
+3. **Autonomous AI-AI Negotiation & Take Over** (`Negotiations` tab):
+   - Watch two Creator Minds exchange counter-proposals (`Draft` → `Countering` → `Agreed`).
+   - Click **"Take Over ✋"** to step in as a human and chat directly in the negotiation.
+4. **Escrow Vault & Quality Dispute Demo**:
+   - Both parties sign the agreement → terms lock into the Escrow Vault.
+   - Submit deliverable verification links → auto-releases funds or triggers the **Quality Dispute Flag**.
+5. **Brand Portal Sponsorship Pitch** ([http://localhost:5173/brand](http://localhost:5173/brand)):
+   - Set up an ad campaign brief (Min Followers, Avg Views, Ad Format, Budget).
+   - Filter creators and click **"Send Sponsorship Offer ⚡"** to pitch directly to the creator's Mind.
+
+---
+
+## 🧪 Running Automated Tests
+
+Run the full test suite across all packages (`db`, `api`, `web`):
+```bash
+npm test
+```
+*Expected result: 568 passed (46 test suites).*
 
 ## API surface (highlights)
 

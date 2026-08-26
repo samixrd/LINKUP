@@ -63,6 +63,15 @@ export type {
   CollaborationUpdates,
   CollaborationFilter,
   CollaborationList,
+  CollabEscrow,
+  CollabSubmission,
+} from './collaborations.js'
+export {
+  getCollabEscrow,
+  lockCollabEscrow,
+  submitCollabDeliverable,
+  flagCollabDispute,
+  listCollabSubmissions,
 } from './collaborations.js'
 export {
   FOLLOW_UP_STATUSES,
@@ -119,8 +128,9 @@ export {
   listOpenCollabs,
   evaluateThreshold,
   findThresholdMatches,
+  listBrandOpenCreators,
 } from './open_collabs.js'
-export type { OpenCollab, NewOpenCollab, ThresholdMatch } from './open_collabs.js'
+export type { OpenCollab, NewOpenCollab, ThresholdMatch, BrandFilterCriteria } from './open_collabs.js'
 export {
   registerAccount,
   loginWithPin,

@@ -417,3 +417,160 @@ export function submitCounterProposal(
   }
   return getCollaboration(db, id) as Collaboration
 }
+
+export interface CollabEscrow {
+  collaborationId: string
+  amount: number
+  currency: string
+  status: 'locked' | 'submitted' | 'released' | 'disputed'
+  disputeReason: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CollabSubmission {
+  id: string
+  collaborationId: string
+  creatorId: string
+  deliverableUrl: string
+  notes: string
+  submittedAt: string
+}
+
+export function getCollabEscrow(db: Database.Database, collaborationId: string): CollabEscrow | null {
+  try {
+    const row = db
+      .prepare('SELECT collaboration_id, amount, currency, status, dispute_reason, created_at, updated_at FROM collab_escrows WHERE collaboration_id = ?')
+      .get(collaborationId) as { collaboration_id: string; amount: number; currency: string; status: string; dispute_reason: string; created_at: string; updated_at: string } | undefined
+    if (!row) return null
+    return {
+      collaborationId: row.collaboration_id,
+      amount: row.amount,
+      currency: row.currency,
+      status: row.status as 'locked' | 'submitted' | 'released' | 'disputed',
+      disputeReason: row.dispute_reason,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function lockCollabEscrow(
+  db: Database.Database,
+  collaborationId: string,
+  amount = 500,
+  currency = 'USD',
+): CollabEscrow {
+  db.prepare(
+    `INSERT INTO collab_escrows (collaboration_id, amount, currency, status)
+     VALUES (?, ?, ?, 'locked')
+     ON CONFLICT(collaboration_id) DO UPDATE SET
+       amount = excluded.amount,
+       currency = excluded.currency,
+       status = 'locked',
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+  ).run(collaborationId, amount, currency)
+  return getCollabEscrow(db, collaborationId)!
+}
+
+export function submitCollabDeliverable(
+  db: Database.Database,
+  collaborationId: string,
+  creatorId: string,
+  deliverableUrl: string,
+  notes = '',
+): { submission: CollabSubmission; escrow: CollabEscrow } {
+  const collab = getCollaboration(db, collaborationId)
+  if (!collab) throw new Error(`collaboration not found: ${collaborationId}`)
+  if (collab.initiatorId !== creatorId && collab.targetId !== creatorId) {
+    throw new Error('creator is not a participant in this collaboration')
+  }
+
+  const id = randomUUID()
+  db.prepare(
+    `INSERT INTO collab_submissions (id, collaboration_id, creator_id, deliverable_url, notes)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(id, collaborationId, creatorId, deliverableUrl, notes)
+
+  // Check how many distinct participants submitted
+  const rows = db
+    .prepare('SELECT DISTINCT creator_id FROM collab_submissions WHERE collaboration_id = ?')
+    .all(collaborationId) as Array<{ creator_id: string }>
+  
+  const bothSubmitted = rows.length >= 2
+
+  let escrow = getCollabEscrow(db, collaborationId)
+  if (!escrow) {
+    escrow = lockCollabEscrow(db, collaborationId)
+  }
+
+  if (bothSubmitted && escrow.status === 'locked') {
+    // Auto-release when both sides have submitted deliverables
+    db.prepare("UPDATE collab_escrows SET status = 'released', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE collaboration_id = ?")
+      .run(collaborationId)
+  } else if (!bothSubmitted && escrow.status === 'locked') {
+    db.prepare("UPDATE collab_escrows SET status = 'submitted', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE collaboration_id = ?")
+      .run(collaborationId)
+  }
+
+  return {
+    submission: {
+      id,
+      collaborationId,
+      creatorId,
+      deliverableUrl,
+      notes,
+      submittedAt: new Date().toISOString(),
+    },
+    escrow: getCollabEscrow(db, collaborationId)!,
+  }
+}
+
+export function flagCollabDispute(
+  db: Database.Database,
+  collaborationId: string,
+  creatorId: string,
+  reason: string,
+): CollabEscrow {
+  const collab = getCollaboration(db, collaborationId)
+  if (!collab) throw new Error(`collaboration not found: ${collaborationId}`)
+  if (collab.initiatorId !== creatorId && collab.targetId !== creatorId) {
+    throw new Error('creator is not a participant in this collaboration')
+  }
+
+  db.prepare(
+    `UPDATE collab_escrows
+     SET status = 'disputed', dispute_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     WHERE collaboration_id = ?`,
+  ).run(reason, collaborationId)
+
+  return getCollabEscrow(db, collaborationId)!
+}
+
+export function listCollabSubmissions(db: Database.Database, collaborationId: string): CollabSubmission[] {
+  try {
+    const rows = db
+      .prepare('SELECT id, collaboration_id, creator_id, deliverable_url, notes, submitted_at FROM collab_submissions WHERE collaboration_id = ? ORDER BY submitted_at ASC')
+      .all(collaborationId) as Array<{
+        id: string
+        collaboration_id: string
+        creator_id: string
+        deliverable_url: string
+        notes: string
+        submitted_at: string
+      }>
+    return rows.map((r) => ({
+      id: r.id,
+      collaborationId: r.collaboration_id,
+      creatorId: r.creator_id,
+      deliverableUrl: r.deliverable_url,
+      notes: r.notes,
+      submittedAt: r.submitted_at,
+    }))
+  } catch {
+    return []
+  }
+}
+

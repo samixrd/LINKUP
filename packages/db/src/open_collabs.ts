@@ -17,6 +17,15 @@ export interface OpenCollab {
   minPartnerFollowers: number
   languages: string[]
   topics: string[]
+  platform: string
+  niche: string
+  minRate: number
+  collabTypes: string[]
+  startDate: string
+  endDate: string
+  guardrails: string
+  openForBrands?: boolean
+  brandMinRate?: number
   createdAt: string
   updatedAt: string
 }
@@ -28,6 +37,15 @@ export interface NewOpenCollab {
   minPartnerFollowers: number
   languages?: string[]
   topics?: string[]
+  platform?: string
+  niche?: string
+  minRate?: number
+  collabTypes?: string[]
+  startDate?: string
+  endDate?: string
+  guardrails?: string
+  openForBrands?: boolean
+  brandMinRate?: number
 }
 
 export interface ThresholdMatch {
@@ -45,6 +63,15 @@ interface Row {
   min_partner_followers: number
   languages: string
   topics: string
+  platform: string | null
+  niche: string | null
+  min_rate: number | null
+  collab_types: string | null
+  start_date: string | null
+  end_date: string | null
+  guardrails: string | null
+  open_for_brands?: number | null
+  brand_min_rate?: number | null
   created_at: string
   updated_at: string
 }
@@ -56,6 +83,15 @@ const SELECT_COLUMNS = `
   min_partner_followers,
   languages,
   topics,
+  platform,
+  niche,
+  min_rate,
+  collab_types,
+  start_date,
+  end_date,
+  guardrails,
+  open_for_brands,
+  brand_min_rate,
   created_at,
   updated_at
 `
@@ -66,8 +102,17 @@ function toOpenCollab(row: Row): OpenCollab {
     openToCollab: row.open_to_collab === 1,
     myFollowers: row.my_followers,
     minPartnerFollowers: row.min_partner_followers,
-    languages: row.languages.split(',').map((l) => l.trim()).filter((l) => l !== ''),
-    topics: row.topics.split(',').map((t) => t.trim()).filter((t) => t !== ''),
+    languages: row.languages ? row.languages.split(',').map((l) => l.trim()).filter((l) => l !== '') : ['en'],
+    topics: row.topics ? row.topics.split(',').map((t) => t.trim()).filter((t) => t !== '') : [],
+    platform: row.platform || 'Instagram',
+    niche: row.niche || '',
+    minRate: Number(row.min_rate ?? 0),
+    collabTypes: row.collab_types ? row.collab_types.split(',').map((c) => c.trim()).filter((c) => c !== '') : ['Paid', 'Barter'],
+    startDate: row.start_date || '',
+    endDate: row.end_date || '',
+    guardrails: row.guardrails || '',
+    openForBrands: row.open_for_brands === 1,
+    brandMinRate: Number(row.brand_min_rate ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -100,16 +145,42 @@ export function setOpenCollab(db: Database.Database, input: NewOpenCollab): Open
     .map((l) => l.toLowerCase())
     .join(',')
   const topics = (input.topics ?? []).join(',')
+  const platform = input.platform || 'Instagram'
+  const niche = input.niche || ''
+  const minRate = Number(input.minRate ?? 0)
+  const collabTypes = (input.collabTypes && input.collabTypes.length > 0 ? input.collabTypes : ['Paid', 'Barter']).join(',')
+  const startDate = input.startDate || ''
+  const endDate = input.endDate || ''
+  const guardrails = input.guardrails || ''
+  const openForBrands = input.openForBrands ? 1 : 0
+  const brandMinRate = Number(input.brandMinRate ?? 0)
 
   db.prepare(
-    `INSERT INTO open_collabs (creator_id, open_to_collab, my_followers, min_partner_followers, languages, topics)
-     VALUES (@creatorId, @openToCollab, @myFollowers, @minPartnerFollowers, @languages, @topics)
+    `INSERT INTO open_collabs (
+       creator_id, open_to_collab, my_followers, min_partner_followers, languages, topics,
+       platform, niche, min_rate, collab_types, start_date, end_date, guardrails,
+       open_for_brands, brand_min_rate
+     )
+     VALUES (
+       @creatorId, @openToCollab, @myFollowers, @minPartnerFollowers, @languages, @topics,
+       @platform, @niche, @minRate, @collabTypes, @startDate, @endDate, @guardrails,
+       @openForBrands, @brandMinRate
+     )
      ON CONFLICT(creator_id) DO UPDATE SET
        open_to_collab = excluded.open_to_collab,
        my_followers = excluded.my_followers,
        min_partner_followers = excluded.min_partner_followers,
        languages = excluded.languages,
-       topics = excluded.topics`,
+       topics = excluded.topics,
+       platform = excluded.platform,
+       niche = excluded.niche,
+       min_rate = excluded.min_rate,
+       collab_types = excluded.collab_types,
+       start_date = excluded.start_date,
+       end_date = excluded.end_date,
+       guardrails = excluded.guardrails,
+       open_for_brands = excluded.open_for_brands,
+       brand_min_rate = excluded.brand_min_rate`,
   ).run({
     creatorId: input.creatorId,
     openToCollab: input.openToCollab ? 1 : 0,
@@ -117,6 +188,15 @@ export function setOpenCollab(db: Database.Database, input: NewOpenCollab): Open
     minPartnerFollowers: input.minPartnerFollowers,
     languages,
     topics,
+    platform,
+    niche,
+    minRate,
+    collabTypes,
+    startDate,
+    endDate,
+    guardrails,
+    openForBrands,
+    brandMinRate,
   })
   const row = db
     .prepare(`SELECT ${SELECT_COLUMNS} FROM open_collabs WHERE creator_id = ?`)
@@ -194,4 +274,51 @@ export function findThresholdMatches(
       b.them.myFollowers + b.me.myFollowers - (a.them.myFollowers + a.me.myFollowers),
   )
   return results
+}
+
+export interface BrandFilterCriteria {
+  niche?: string
+  platform?: string
+  minFollowers?: number
+  maxRate?: number
+  language?: string
+}
+
+/**
+ * Lists creators who are explicitly open to brand sponsorships and match brand criteria.
+ */
+export function listBrandOpenCreators(
+  db: Database.Database,
+  criteria?: BrandFilterCriteria,
+): OpenCollab[] {
+  let query = `SELECT ${SELECT_COLUMNS} FROM open_collabs WHERE open_to_collab = 1 AND open_for_brands = 1`
+  const params: unknown[] = []
+
+  if (criteria?.niche && criteria.niche.trim() !== '') {
+    query += ` AND (niche = ? OR niche LIKE ?)`
+    params.push(criteria.niche, `%${criteria.niche}%`)
+  }
+  if (criteria?.platform && criteria.platform.trim() !== '') {
+    query += ` AND platform = ?`
+    params.push(criteria.platform)
+  }
+  if (criteria?.minFollowers && criteria.minFollowers > 0) {
+    query += ` AND my_followers >= ?`
+    params.push(criteria.minFollowers)
+  }
+  if (criteria?.maxRate && criteria.maxRate > 0) {
+    query += ` AND (brand_min_rate <= ? OR brand_min_rate = 0)`
+    params.push(criteria.maxRate)
+  }
+
+  query += ` ORDER BY my_followers DESC, creator_id ASC`
+  const rows = db.prepare(query).all(...params) as Row[]
+  let list = rows.map(toOpenCollab)
+
+  if (criteria?.language && criteria.language !== '*' && criteria.language.trim() !== '') {
+    const lang = criteria.language.toLowerCase()
+    list = list.filter((c) => c.languages.includes('*') || c.languages.map((l) => l.toLowerCase()).includes(lang))
+  }
+
+  return list
 }
