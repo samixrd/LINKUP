@@ -66,10 +66,18 @@ export default function MindPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
+  const [hasCompletedGoOpen, setHasCompletedGoOpen] = useState(false)
+  const [goOpenPromptModal, setGoOpenPromptModal] = useState(false)
+
   function refreshMindContext() {
     if (!creatorId) return
     getMindContext(creatorId)
       .then((ctx) => setContext(ctx))
+      .catch(() => {})
+    fetch(`/api/open-collabs/${encodeURIComponent(creatorId)}`)
+      .then((res) => {
+        if (res.ok) setHasCompletedGoOpen(true)
+      })
       .catch(() => {})
   }
 
@@ -86,10 +94,31 @@ export default function MindPage() {
       .finally(() => {
         if (!cancelled) setLoadingMind(false)
       })
+
+    fetch(`/api/open-collabs/${encodeURIComponent(creatorId)}`)
+      .then((res) => {
+        if (!cancelled && res.ok) setHasCompletedGoOpen(true)
+      })
+      .catch(() => {})
+
     return () => {
       cancelled = true
     }
   }, [creatorId])
+
+  function handleStartFindCollab() {
+    if (!hasCompletedGoOpen) {
+      setGoOpenPromptModal(true)
+      return
+    }
+    setLiveNegotiation({})
+  }
+
+  function handleStartPropose() {
+    // Manual proposal does not require Go Open — the creator picks the partner themselves.
+    setSection('negotiations')
+    setProposeOpen(true)
+  }
 
   useEffect(() => {
     if (!creatorId) return
@@ -296,7 +325,7 @@ export default function MindPage() {
             <button
               type="button"
               className="btn collab-open-btn"
-              onClick={() => setLiveNegotiation({})}
+              onClick={handleStartFindCollab}
               aria-label="Let your Mind find a collab"
             >
               Find Collab ⚡
@@ -304,16 +333,47 @@ export default function MindPage() {
             <button
               type="button"
               className="btn collab-open-btn"
-              onClick={() => {
-                setSection('negotiations')
-                setProposeOpen(true)
-              }}
+              onClick={handleStartPropose}
               aria-label="Propose collaboration"
             >
               Propose Collaboration ↗
             </button>
           </div>
         </header>
+
+        {goOpenPromptModal && (
+          <div className="escrow-modal-overlay" role="dialog" aria-modal="true">
+            <div className="card escrow-modal" style={{ maxWidth: '30rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚙️</div>
+              <p className="card-kicker">Matching Criteria Required</p>
+              <h3 className="card-title" style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>
+                Complete "Go Open" First
+              </h3>
+              <p className="card-body" style={{ fontSize: '0.88rem', lineHeight: '1.5', color: 'var(--ink-soft)' }}>
+                Your AI Mind needs your matching criteria (platform, niche, minimum rates, and guardrails) before it can negotiate on your behalf.
+              </p>
+              <div className="mind-save-actions" style={{ justifyContent: 'center', marginTop: '1.2rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setGoOpenPromptModal(false)
+                    setSection('open')
+                  }}
+                >
+                  Configure Go Open Now →
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setGoOpenPromptModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <nav className="mind-tabs" aria-label="Mind sections">
           {(
