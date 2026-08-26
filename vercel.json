@@ -1,1 +1,1 @@
-{"installCommand":"npm install --include=dev","buildCommand":"npm run build --workspace=packages/db && npm run build --workspace=apps/web","outputDirectory":"apps/web/dist","rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{"installCommand":"npm install --include=dev","buildCommand":"npm run build -w packages/db && npm run build -w apps/web","outputDirectory":"apps/web/dist","rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
