@@ -281,28 +281,28 @@ export default function App() {
 
         {/* SECTION 4: BRAND & SPONSORSHIP DISCOVERY */}
         <section className="landing-section">
-          <div className="landing-brand-banner card">
+          <div className="card landing-brand-banner">
             <div className="landing-brand-content">
               <p className="hero-kicker">N°004 — Brand Portal</p>
-              <h2 className="landing-section-title" style={{ color: 'var(--paper)' }}>
+              <h2 className="landing-section-title">
                 Direct Brand Ad Sponsorships
               </h2>
-              <p style={{ color: 'var(--paper)', opacity: 0.9, lineHeight: 1.6, maxWidth: '38rem', marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                Brands can filter creators by niche, audience reach, language, and content formats to dispatch instant AI-negotiated sponsorship proposals directly into creator Minds.
+              <p className="landing-section-sub">
+                Brands can filter verified creators by niche, audience reach, language, and content formats to dispatch instant AI-negotiated sponsorship proposals directly into creator Minds.
               </p>
               <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <a className="btn btn-primary" href="/brand" style={{ background: 'var(--green)', color: 'var(--ink)' }}>
+                <a className="btn btn-primary" href="/brand">
                   Launch Brand Campaign Builder ⚡
                 </a>
-                <a className="btn btn-ghost" href="/mind" style={{ color: 'var(--paper)', borderColor: 'var(--paper)' }}>
+                <a className="btn btn-ghost" href="/mind">
                   Enter Creator Workspace →
                 </a>
               </div>
             </div>
             <div className="landing-brand-badges">
-              <div className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>YouTube & TikTok</div>
-              <div className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>Target CPM & Budgets</div>
-              <div className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>Escrow Milestone Protection</div>
+              <div className="badge" style={{ padding: '0.6rem 1rem', fontSize: '0.8rem' }}>⚡ Multi-Platform (YouTube / TikTok / IG)</div>
+              <div className="badge" style={{ padding: '0.6rem 1rem', fontSize: '0.8rem' }}>🎯 Follower Floor & Target Views</div>
+              <div className="badge" style={{ padding: '0.6rem 1rem', fontSize: '0.8rem' }}>🔒 Escrow Milestone Protection</div>
             </div>
           </div>
         </section>

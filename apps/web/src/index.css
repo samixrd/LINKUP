@@ -209,15 +209,16 @@ body::after {
 }
 
 .hero {
-  flex: 1;
   width: 100%;
   max-width: 72rem;
+  min-height: calc(90vh - 80px);
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap: 3rem;
+  gap: 3.5rem;
   align-items: center;
-  padding: 3rem 2rem 3.5rem;
+  padding: 3rem 2rem 5rem;
+  box-sizing: border-box;
 }
 
 .hero-kicker {
@@ -352,8 +353,9 @@ body::after {
   width: 100%;
   max-width: 72rem;
   margin: 0 auto;
-  padding: 4.5rem 2rem 3.5rem;
+  padding: 5rem 2rem;
   border-top: 2px solid var(--ink);
+  box-sizing: border-box;
 }
 
 .landing-section--alt {
@@ -397,6 +399,8 @@ body::after {
   flex-direction: column;
   padding: 1.8rem;
   background: var(--paper);
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .landing-card-num {
@@ -427,6 +431,8 @@ body::after {
   border: 2px solid var(--ink);
   display: flex;
   flex-direction: column;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .landing-stat-val {
@@ -448,28 +454,29 @@ body::after {
 }
 
 .landing-brand-banner {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--paper);
+  color: var(--ink);
   border: 2px solid var(--ink);
-  box-shadow: 6px 6px 0 var(--accent);
+  box-shadow: 6px 6px 0 var(--ink);
   padding: 3rem 2.5rem;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1.4fr 0.6fr;
   align-items: center;
   gap: 2.5rem;
-  flex-wrap: wrap;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
 }
 
 .landing-brand-content {
-  flex: 1;
-  min-width: 18rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .landing-brand-badges {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-  min-width: 15rem;
 }
 
 @media (max-width: 768px) {
