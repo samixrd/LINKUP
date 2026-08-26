@@ -41,6 +41,22 @@ function friendlyError(err: unknown): string {
   return 'Could not reach the LINKUP API. Please try again.'
 }
 
+function extractNegotiationTarget(
+  text: string,
+  matches: Array<{ creator: { creatorId: string; displayName: string } }>,
+) {
+  if (!matches || matches.length === 0) return undefined
+  const tLower = text.toLowerCase()
+  for (const match of matches) {
+    const dName = match.creator.displayName.toLowerCase()
+    const firstName = match.creator.displayName.split(' ')[0]?.toLowerCase()
+    if (tLower.includes(dName) || (firstName && firstName.length > 2 && tLower.includes(firstName))) {
+      return match.creator
+    }
+  }
+  return matches[0]?.creator
+}
+
 export default function MindPage() {
   const creatorId = getStoredCreatorId()
   const [context, setContext] = useState<MindContext | null>(null)
@@ -216,23 +232,66 @@ export default function MindPage() {
       const d = context?.details
       const niche = d?.niches[0] || 'Creative Media'
       const platform = d?.platforms[0] || 'YouTube'
+      const dealRule = d?.dealbreakers || 'Language parity required, minimum budget floor respected, and deliverable verification before contract signing'
+      const matches = context?.matches?.matches ?? []
+      const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined
+
+      const isAffirmative = /^(yes|yep|yeah|sure|ok|okay|go ahead|let'?s do it|do it|start|proceed|start negotiation|initiate|negotiate|agree|y)$/i.test(q)
+      const wantsNegotiation = isAffirmative || /negotiat|initiate|collab with|deal with|start with|reach out to|propose to/i.test(q)
+
+      let targetMatch = matches.find((m) =>
+        q.includes(m.creator.displayName.toLowerCase()) ||
+        q.includes(m.creator.creatorId.toLowerCase()) ||
+        (m.creator.displayName.split(' ')[0] && q.includes(m.creator.displayName.split(' ')[0]!.toLowerCase())),
+      )
+
+      if (!targetMatch && lastMessage && lastMessage.role === 'mind') {
+        const lastText = lastMessage.content.toLowerCase()
+        targetMatch = matches.find((m) =>
+          lastText.includes(m.creator.displayName.toLowerCase()) ||
+          (m.creator.displayName.split(' ')[0] && lastText.includes(m.creator.displayName.split(' ')[0]!.toLowerCase())),
+        )
+      }
+
       let fallbackAnswer = `I'm actively guarding your ${niche} collaborations on ${platform}. Ask me about your match synergies, active negotiations, or tell me to initiate a new collab blueprint!`
 
-      if (q.includes('fit') || q.includes('who') || q.includes('creator') || q.includes('partner')) {
-        const topMatches = context?.matches?.matches?.slice(0, 3) ?? []
+      if (wantsNegotiation) {
+        const chosen = targetMatch ?? matches[0]
+        if (chosen) {
+          fallbackAnswer = `Initiating autonomous negotiation with ${chosen.creator.displayName} (${chosen.score}% match)! I am reviewing your Go Open guardrails (${dealRule}) and drafting a strategic 3-round proposal tailored to your ${niche} audience on ${platform}. Click the action below to open live AI-to-AI negotiation rounds in real time.`
+        } else {
+          fallbackAnswer = `I am ready to negotiate for you. Tap 'Find Collab ⚡' or select a creator from your Matches to let me run autonomous deal rounds balancing your rate floors and deliverable guardrails.`
+        }
+      } else if (targetMatch) {
+        const match = targetMatch
+        const shared = match.sharedTerms.length > 0 ? match.sharedTerms.join(', ') : `${niche} content`
+        fallbackAnswer = `${match.creator.displayName} is a ${match.score}% synergy match for your ${niche} channel on ${platform}. They share audience focus on ${shared}. Would you like me to initiate an autonomous negotiation with ${match.creator.displayName}?`
+      } else if (q.includes('fit') || q.includes('who') || q.includes('creator') || q.includes('partner') || q.includes('match') || q.includes('suggest')) {
+        const topMatches = matches.slice(0, 3)
         if (topMatches.length > 0) {
           const names = topMatches.map((m) => `${m.creator.displayName} (${m.score}% match)`).join(', ')
           fallbackAnswer = `Based on your ${niche} focus and ${platform} audience, your strongest current matches are: ${names}. They share complementary demographics and respect your guardrails. Would you like me to start an autonomous negotiation with one of them?`
         } else {
           fallbackAnswer = `I've analyzed your profile. High-synergy creators in ${niche}, Tech & AI, and Video Production who publish on ${platform} or TikTok are your best fit. Tap 'Find Collab ⚡' to have me negotiate a terms-backed cross-promotion with them directly.`
         }
-      } else if (q.includes('guardrail') || q.includes('rule') || q.includes('term') || q.includes('avoid')) {
-        fallbackAnswer = `Your active guardrails are strictly enforced: Language parity required, minimum budget floor respected, and deliverable verification before contract signing. I will reject zero-budget or misaligned proposals automatically.`
-      } else if (q.includes('goal') || q.includes('priority') || q.includes('grow')) {
+      } else if (q.includes('deal') || q.includes('negotiation') || q.includes('proposal') || q.includes('collab') || q.includes('status')) {
+        const collabs = context?.collaborations?.collaborations ?? []
+        if (collabs.length > 0) {
+          const summary = collabs
+            .slice(0, 3)
+            .map((c) => `Deal ${c.id.slice(-6)} (Status: ${c.status})`)
+            .join('; ')
+          fallbackAnswer = `You currently have ${collabs.length} collaboration(s) tracked on LINKUP: ${summary}. I continuously safeguard your interests during counter-proposals and verify deliverable requirements before closing.`
+        } else {
+          fallbackAnswer = `You have no active negotiations right now. I can initiate a fresh negotiation with your top matches or monitor incoming Go Open terms for you!`
+        }
+      } else if (q.includes('guardrail') || q.includes('rule') || q.includes('term') || q.includes('avoid') || q.includes('dealbreaker')) {
+        fallbackAnswer = `Your active guardrails are strictly enforced: ${dealRule}. I will reject zero-budget or misaligned proposals automatically.`
+      } else if (q.includes('goal') || q.includes('priority') || q.includes('grow') || q.includes('strategy')) {
         const goal = d?.goals[0] || 'rapid audience cross-pollination and high-converting joint content'
         fallbackAnswer = `Your primary strategic priority is: ${goal}. Every autonomous negotiation I run will prioritize co-branded distribution, bilingual captions, and equal revenue/reach splits.`
-      } else if (q.includes('deal') || q.includes('negotiation') || q.includes('proposal')) {
-        fallbackAnswer = `I am currently actively monitoring the LINKUP network. Whenever a compatible creator publishes Go Open terms, I evaluate audience thresholds, draft joint blueprints, and negotiate deliverables up to 3 strategic rounds for your review.`
+      } else if (q.includes('how does') || q.includes('escrow') || q.includes('take over') || q.includes('contract')) {
+        fallbackAnswer = `LINKUP autonomous negotiation runs in 3 AI-to-AI rounds balancing your rate, deliverables, and timeline against your guardrails. You can take over manually anytime. Once both creators sign, funds lock into smart escrow and are released upon verified completion.`
       }
 
       setMessages((prev) => [...prev, { role: 'mind', content: fallbackAnswer, time: nowStamp }])
@@ -687,26 +746,86 @@ export default function MindPage() {
                         </ul>
                       </div>
                     ) : (
-                      messages.map((m, i) => (
-                        <div key={m.id ?? `${m.role}-${i}`} className={`mind-message mind-message--${m.role}`}>
-                          <div className="mind-bubble">
-                            <p className="mind-bubble-text">{m.content}</p>
-                            <div className="mind-bubble-footer">
-                              {m.time && <span className="mind-bubble-time">{m.time}</span>}
-                              {m.role === 'mind' && m.id && (
-                                <button
-                                  type="button"
-                                  className="mind-save-btn"
-                                  onClick={() => openSave(m.id, m.content)}
-                                  aria-label={`Save to Mind: ${m.content.slice(0, 30)}`}
+                      messages.map((m, i) => {
+                        const isMind = m.role === 'mind'
+                        const targetCreator = isMind ? extractNegotiationTarget(m.content, context.matches.matches) : undefined
+                        const hasNegotiationTrigger =
+                          isMind &&
+                          (/initiating autonomous negotiation|start an autonomous negotiation|initiate an autonomous negotiation|negotiate with|Find Collab/i.test(
+                            m.content,
+                          ) ||
+                            m.content.includes('⚡') ||
+                            /Would you like me to (initiate|start) an autonomous negotiation/i.test(m.content))
+
+                        return (
+                          <div key={m.id ?? `${m.role}-${i}`} className={`mind-message mind-message--${m.role}`}>
+                            <div className="mind-bubble">
+                              <p className="mind-bubble-text">{m.content}</p>
+
+                              {hasNegotiationTrigger && (
+                                <div
+                                  className="mind-chat-actions"
+                                  style={{
+                                    marginTop: '0.75rem',
+                                    marginBottom: '0.25rem',
+                                    display: 'flex',
+                                    gap: '0.5rem',
+                                    flexWrap: 'wrap',
+                                  }}
                                 >
-                                  Save to Mind
-                                </button>
+                                  {targetCreator ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-primary"
+                                      onClick={() => {
+                                        if (!hasCompletedGoOpen) {
+                                          setGoOpenPromptModal(true)
+                                          return
+                                        }
+                                        setLiveNegotiation({
+                                          targetId: targetCreator.creatorId,
+                                          targetName: targetCreator.displayName,
+                                        })
+                                      }}
+                                    >
+                                      ⚡ Start Live Autonomous Negotiation with {targetCreator.displayName}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-primary"
+                                      onClick={handleStartFindCollab}
+                                    >
+                                      ⚡ Launch Autonomous Deal Flow
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-ghost"
+                                    onClick={() => setSection('matches')}
+                                  >
+                                    View Matches ↗
+                                  </button>
+                                </div>
                               )}
+
+                              <div className="mind-bubble-footer">
+                                {m.time && <span className="mind-bubble-time">{m.time}</span>}
+                                {m.role === 'mind' && m.id && (
+                                  <button
+                                    type="button"
+                                    className="mind-save-btn"
+                                    onClick={() => openSave(m.id, m.content)}
+                                    aria-label={`Save to Mind: ${m.content.slice(0, 30)}`}
+                                  >
+                                    Save to Mind
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        )
+                      })
                     )}
                     {sending && (
                       <div className="mind-message mind-message--mind">

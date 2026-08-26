@@ -69,7 +69,12 @@ export default function Shell({ children, onNavigateTab }: ShellProps) {
     <div className="shell">
       <header className="site-header">
         <a className="site-logo" href="/" aria-label="LINKUP home">
-          LINKUP<span className="site-logo-star" aria-hidden="true">*</span>
+          <img
+            src="/linkup-logo.jpg"
+            alt="LINKUP*"
+            className="site-logo-img"
+            aria-hidden="false"
+          />
         </a>
         <div className="site-header-right">
           <nav className="site-nav" aria-label="Primary">

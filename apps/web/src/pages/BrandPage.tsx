@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Shell from '../components/Shell'
+import NegotiationLive from '../components/NegotiationLive'
 import type { OpenCollabCard } from '../components/GoOpenPanel'
 
 const NICHES = [
@@ -35,7 +36,12 @@ const LANGUAGES = [
 ]
 
 export default function BrandPage() {
-  const [brandName, setBrandName] = useState('')
+  const [brandName, setBrandName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('linkup.brandName') || ''
+    }
+    return ''
+  })
   const [campaignTitle, setCampaignTitle] = useState('')
   const [selectedNiche, setSelectedNiche] = useState('All Niches')
   const [selectedPlatform, setSelectedPlatform] = useState('All Platforms')
@@ -53,6 +59,16 @@ export default function BrandPage() {
   const [offerPrice, setOfferPrice] = useState('250')
   const [sendingProposal, setSendingProposal] = useState(false)
   const [proposalStatus, setProposalStatus] = useState<string | null>(null)
+  const [liveNegotiation, setLiveNegotiation] = useState<{ targetId?: string; targetName?: string } | null>(null)
+
+  function handleBrandNameChange(val: string) {
+    setBrandName(val)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('linkup.brandName', val)
+      const bId = `brand_${val.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'partner'}`
+      localStorage.setItem('linkup.brandId', bId)
+    }
+  }
 
   // Fetch open creators filtered for brands
   useEffect(() => {
@@ -66,7 +82,8 @@ export default function BrandPage() {
         if (Number(minFollowers) > 0) queryParams.set('minFollowers', minFollowers)
         if (selectedLanguage !== '*') queryParams.set('language', selectedLanguage)
 
-        const res = await fetch(`/api/open-collabs/brands/creators?${queryParams.toString()}`)
+        const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+        const res = await fetch(`${apiBase}/api/open-collabs/brands/creators?${queryParams.toString()}`)
         if (!res.ok) return
         const data = await res.json()
         if (!cancelled) {
@@ -86,8 +103,12 @@ export default function BrandPage() {
 
   function handleOpenProposal(creator: OpenCollabCard) {
     setActiveModalCreator(creator)
-    setOfferPrice(String(creator.brandMinRate && creator.brandMinRate > 0 ? creator.brandMinRate : budgetPerCreator))
-    setOfferText(`Hey! We'd love to sponsor a ${contentType} for our brand (${brandName || 'Brand Partner'}). Let's collaborate!`)
+    const suggestedPrice = creator.brandMinRate && creator.brandMinRate > 0 ? creator.brandMinRate : Number(budgetPerCreator) > 0 ? Number(budgetPerCreator) : 250
+    setOfferPrice(String(suggestedPrice))
+    const bName = brandName.trim() || 'Brand Partner'
+    const titleSnippet = campaignTitle.trim() ? ` for "${campaignTitle.trim()}"` : ''
+    const briefSnippet = campaignBrief.trim() ? ` Key Focus: ${campaignBrief.trim()}` : ''
+    setOfferText(`Hey! We'd love to sponsor a ${contentType}${titleSnippet} for our brand (${bName}).${briefSnippet} Let's collaborate!`)
     setProposalStatus(null)
   }
 
@@ -97,15 +118,22 @@ export default function BrandPage() {
     setProposalStatus(null)
 
     try {
-      const bId = `brand_${(brandName || 'partner').toLowerCase().replace(/\s+/g, '_')}`
+      const bName = brandName.trim() || 'Brand Partner'
+      const bId = `brand_${bName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('linkup.brandId', bId)
+        localStorage.setItem('linkup.creatorId', bId)
+      }
       const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+      const briefNote = campaignBrief.trim() ? ` | Brief: ${campaignBrief.trim()}` : ''
       const res = await fetch(`${apiBase}/api/open-collabs/negotiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorId: bId,
+          brandName: bName,
           targetId: activeModalCreator.creatorId,
-          proposal: `[BRAND SPONSORSHIP - $${offerPrice}] ${offerText} | Deliverable: ${contentType}`,
+          proposal: `[BRAND SPONSORSHIP - $${offerPrice}] ${offerText} | Deliverable: ${contentType}${briefNote}`,
         }),
       })
 
@@ -115,16 +143,24 @@ export default function BrandPage() {
       }
 
       setProposalSentId(activeModalCreator.creatorId)
-      setProposalStatus('⚡ Sponsorship proposal dispatched to Creator Mind! Check your deal transcript.')
+      setProposalStatus('⚡ Sponsorship proposal dispatched to Creator Mind! Opening live deal room…')
+      const target = activeModalCreator
       setTimeout(() => {
         setActiveModalCreator(null)
-      }, 2000)
+        setLiveNegotiation({
+          targetId: target.creatorId,
+          targetName: target.creatorId.replace('u_', ''),
+        })
+      }, 1200)
     } catch (err) {
       setProposalStatus(err instanceof Error ? err.message : 'Failed to send proposal.')
     } finally {
       setSendingProposal(false)
     }
   }
+
+  const brandDisplayName = brandName.trim() || 'Brand Partner'
+  const brandDisplayId = `brand_${brandDisplayName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`
 
   return (
     <Shell>
@@ -161,6 +197,29 @@ export default function BrandPage() {
             <p className="card-kicker">Brand Campaign Brief</p>
             <h2 className="card-title">Campaign Specs</h2>
 
+            {/* Brand Mind Identity Status */}
+            <div
+              className="brand-mind-banner"
+              style={{
+                background: 'var(--paper, #f7f9fa)',
+                border: '1.5px solid var(--ink)',
+                padding: '0.65rem 0.85rem',
+                marginBottom: '1.1rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700 }}>
+                  🏷️ Mind: {brandDisplayName}
+                </span>
+                <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>
+                  {brandDisplayId}
+                </span>
+              </div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--ink-soft)', marginTop: '0.25rem', marginBottom: 0 }}>
+                ● Autonomous Brand Negotiator Active & Escrow-Ready
+              </p>
+            </div>
+
             <div className="form-grid">
               <label className="field">
                 <span className="field-label">Brand / Product Name</span>
@@ -169,7 +228,7 @@ export default function BrandPage() {
                   type="text"
                   placeholder="e.g. OpenAI / Notion / Gymshark"
                   value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
+                  onChange={(e) => handleBrandNameChange(e.target.value)}
                 />
               </label>
 
@@ -349,7 +408,13 @@ export default function BrandPage() {
                         </div>
                         <div className="creator-stat">
                           <span className="stat-label">Min Ad Rate</span>
-                          <span className="stat-val"></span>
+                          <span className="stat-val">
+                            {c.brandMinRate && c.brandMinRate > 0
+                              ? `$${c.brandMinRate}`
+                              : c.minRate && c.minRate > 0
+                                ? `$${c.minRate}`
+                                : 'Flexible'}
+                          </span>
                         </div>
                         <div className="creator-stat">
                           <span className="stat-label">Languages</span>
@@ -451,6 +516,22 @@ export default function BrandPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Live Autonomous Negotiation Viewer for Brand Deals */}
+        {liveNegotiation !== null && (
+          <div className="escrow-modal-overlay" role="dialog" aria-modal="true">
+            <div style={{ maxWidth: '44rem', width: '100%', margin: '1.5rem auto' }}>
+              <NegotiationLive
+                targetId={liveNegotiation.targetId}
+                targetName={liveNegotiation.targetName}
+                onClose={() => setLiveNegotiation(null)}
+                onCompleted={() => {
+                  setLiveNegotiation(null)
+                }}
+              />
             </div>
           </div>
         )}

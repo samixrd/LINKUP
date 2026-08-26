@@ -2,6 +2,7 @@ import { Router } from 'express'
 import type Database from 'better-sqlite3'
 import {
   createCollaboration,
+  createCreatorProfile,
   getCollaboration,
   getCreatorProfile,
   getOpenCollab,
@@ -122,6 +123,11 @@ export function createOpenCollabRouter(
   })
 
   router.get('/brands/creators', (req, res) => {
+    // Ensure demo creators exist in the DB
+    if (listBrandOpenCreators(db).length === 0) {
+      seedDemoAccounts(db)
+    }
+
     const niche = typeof req.query.niche === 'string' ? req.query.niche : undefined
     const platform = typeof req.query.platform === 'string' ? req.query.platform : undefined
     const minFollowers = req.query.minFollowers ? Number(req.query.minFollowers) : undefined
@@ -165,66 +171,100 @@ export function createOpenCollabRouter(
   })
 
   router.post('/negotiate', async (req, res) => {
-    const body = req.body as Record<string, unknown>
-    const creatorId = body.creatorId
-    const targetId = body.targetId
-    const proposalText =
-      typeof body.proposal === 'string' && body.proposal.trim() !== ''
-        ? body.proposal.trim()
-        : 'Cross-promotion collaboration tailored to both creators.'
-
-    if (!isNonEmptyString(creatorId) || !isNonEmptyString(targetId)) {
-      res.status(400).json({ error: 'creatorId and targetId are required' })
-      return
-    }
-    if (creatorId === targetId) {
-      res.status(400).json({ error: 'cannot negotiate with yourself' })
-      return
-    }
-    if (
-      getCreatorProfile(db, creatorId) === undefined ||
-      getCreatorProfile(db, targetId) === undefined
-    ) {
-      res.status(404).json({ error: 'creator not found' })
-      return
-    }
-
-    // Auto-create/publish cards if missing for smooth demo execution
-    let mine = getOpenCollab(db, creatorId)
-    if (mine === undefined) {
-      const details = getProfileDetails(db, creatorId)
-      mine = setOpenCollab(db, {
-        creatorId,
-        openToCollab: true,
-        myFollowers: followersFromAudienceSize(details?.audienceSize) || 1000,
-        minPartnerFollowers: 0,
-        languages: (details?.languages ?? []).map(languageCodeFromName),
-      })
-    }
-    let theirs = getOpenCollab(db, targetId)
-    if (theirs === undefined) {
-      const details = getProfileDetails(db, targetId)
-      theirs = setOpenCollab(db, {
-        creatorId: targetId,
-        openToCollab: true,
-        myFollowers: followersFromAudienceSize(details?.audienceSize) || 50000,
-        minPartnerFollowers: 0,
-        languages: (details?.languages ?? []).map(languageCodeFromName),
-      })
-    }
-
-    if (
-      (theirs.minPartnerFollowers > 0 && mine.myFollowers < theirs.minPartnerFollowers) ||
-      (mine.minPartnerFollowers > 0 && theirs.myFollowers < mine.minPartnerFollowers)
-    ) {
-      res.status(409).json({
-        error:
-          'threshold mismatch: one side requires more followers than the other currently has',
-      })
-      return
-    }
-
     try {
+      const body = req.body as Record<string, unknown>
+      const creatorId = body.creatorId
+      const targetId = body.targetId
+      const proposalText =
+        typeof body.proposal === 'string' && body.proposal.trim() !== ''
+          ? body.proposal.trim()
+          : 'Cross-promotion collaboration tailored to both creators.'
+
+      if (!isNonEmptyString(creatorId) || !isNonEmptyString(targetId)) {
+        res.status(400).json({ error: 'creatorId and targetId are required' })
+        return
+      }
+      if (creatorId === targetId) {
+        res.status(400).json({ error: 'cannot negotiate with yourself' })
+        return
+      }
+
+      // Auto-seed if target creator is a demo account and not in DB yet
+      if (getCreatorProfile(db, targetId) === undefined) {
+        seedDemoAccounts(db)
+      }
+
+      // Auto-register Brand Sponsor profile if creatorId is a Brand
+      if (getCreatorProfile(db, creatorId) === undefined) {
+        if (creatorId.startsWith('brand_') || body.brandName) {
+          const rawBrandName = typeof body.brandName === 'string' && body.brandName.trim()
+            ? body.brandName.trim()
+            : creatorId.replace(/^brand_/, '').replace(/_/g, ' ') || 'Brand Partner'
+          const bDisplayName = rawBrandName.replace(/\b\w/g, (c) => c.toUpperCase())
+          createCreatorProfile(db, {
+            creatorId,
+            displayName: bDisplayName,
+            bio: typeof body.brandBio === 'string' && body.brandBio.trim() ? body.brandBio.trim() : `Official Brand Sponsor account for ${bDisplayName}`,
+          })
+        } else {
+          seedDemoAccounts(db)
+        }
+      }
+
+      if (
+        getCreatorProfile(db, creatorId) === undefined ||
+        getCreatorProfile(db, targetId) === undefined
+      ) {
+        res.status(404).json({ error: 'creator not found' })
+        return
+      }
+
+      // Auto-create/publish cards if missing for smooth demo execution
+      let mine = getOpenCollab(db, creatorId)
+      if (mine === undefined) {
+        if (creatorId.startsWith('brand_')) {
+          mine = setOpenCollab(db, {
+            creatorId,
+            openToCollab: true,
+            myFollowers: 1_000_000,
+            minPartnerFollowers: 0,
+            languages: ['en', 'bn'],
+          })
+        } else {
+          const details = getProfileDetails(db, creatorId)
+          mine = setOpenCollab(db, {
+            creatorId,
+            openToCollab: true,
+            myFollowers: followersFromAudienceSize(details?.audienceSize) || 1000,
+            minPartnerFollowers: 0,
+            languages: (details?.languages ?? []).map(languageCodeFromName),
+          })
+        }
+      }
+      let theirs = getOpenCollab(db, targetId)
+      if (theirs === undefined) {
+        const details = getProfileDetails(db, targetId)
+        theirs = setOpenCollab(db, {
+          creatorId: targetId,
+          openToCollab: true,
+          myFollowers: followersFromAudienceSize(details?.audienceSize) || 50000,
+          minPartnerFollowers: 0,
+          languages: (details?.languages ?? []).map(languageCodeFromName),
+        })
+      }
+
+      if (
+        !creatorId.startsWith('brand_') &&
+        ((theirs.minPartnerFollowers > 0 && mine.myFollowers < theirs.minPartnerFollowers) ||
+          (mine.minPartnerFollowers > 0 && theirs.myFollowers < mine.minPartnerFollowers))
+      ) {
+        res.status(409).json({
+          error:
+            'threshold mismatch: one side requires more followers than the other currently has',
+        })
+        return
+      }
+
       const collab = createCollaboration(db, {
         id: `neg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         initiatorId: creatorId,
@@ -232,8 +272,11 @@ export function createOpenCollabRouter(
         proposal: proposalText,
       })
       const state = await runNegotiation({ db, adapter }, collab.id)
+      const targetProfile = getCreatorProfile(db, targetId)
       res.status(201).json({
         collaborationId: collab.id,
+        targetId,
+        targetName: targetProfile?.displayName ?? targetId,
         status: state.status,
         rounds: state.rounds,
         score: state.score,
@@ -241,6 +284,7 @@ export function createOpenCollabRouter(
         readyForSigning: state.score >= AGREE_THRESHOLD && state.finalPlan !== undefined,
       })
     } catch (err) {
+      console.error('OPEN COLLABS NEGOTIATE ERROR:', err)
       const message = err instanceof Error ? err.message : String(err)
       if (message.includes('Minds adapter not configured')) {
         res.status(503).json({ error: message })

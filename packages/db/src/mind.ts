@@ -6,6 +6,7 @@ import { findCompatibleCreators } from './matching.js'
 import { listCollaborationsForCreator } from './collaborations.js'
 import { listFollowUpsForCollaboration } from './follow_ups.js'
 import { listCollaborationProposals } from './collaboration_proposals.js'
+import { listMindInteractions, type MindInteraction } from './mind_interactions.js'
 import type { CreatorProfile } from './profiles.js'
 import type { CreatorMemory } from './memories.js'
 import type { CreatorMatchList } from './matching.js'
@@ -29,6 +30,8 @@ export interface MindContext {
   outcomes: CreatorMemory[]
   /** Ordered negotiation history across all of the creator's collaborations. */
   negotiationHistory: CollaborationProposal[]
+  /** Recent chat interactions between creator and their Mind. */
+  recentInteractions?: import('./mind_interactions.js').MindInteraction[]
   /**
    * Present only when the caller opted into a memory search via
    * `MindContextOptions.memorySearch`; carries the ranked results.
@@ -122,6 +125,15 @@ export function buildMindContext(
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   })
 
+  // Collect recent mind interactions for conversational memory
+  let recentInteractions: MindInteraction[] = []
+  try {
+    const interactionList = listMindInteractions(db, creatorId, { limit: 10 })
+    recentInteractions = interactionList.interactions
+  } catch {
+    // Ignore if not present
+  }
+
   const context: MindContext = {
     creator,
     details: getProfileDetails(db, creatorId) ?? undefined,
@@ -131,6 +143,7 @@ export function buildMindContext(
     followUps,
     outcomes,
     negotiationHistory,
+    recentInteractions,
   }
 
   if (options.memorySearch !== undefined && options.memorySearch.trim() !== '') {

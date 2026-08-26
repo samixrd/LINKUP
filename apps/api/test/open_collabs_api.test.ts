@@ -185,4 +185,45 @@ describe('open collab negotiation API', () => {
     expect(getOpenCollab(db, 'u_big')?.minPartnerFollowers).toBe(500)
     db.close()
   })
+
+  it('allows brand portal to initiate sponsorship and auto-registers brand profile', async () => {
+    const db: Database.Database = createDatabase(':memory:')
+    migrate(db)
+    createCreatorProfile(db, { creatorId: 'u_nusrat_vlogs', displayName: 'Nusrat Jahan' })
+    setOpenCollab(db, {
+      creatorId: 'u_nusrat_vlogs',
+      openToCollab: true,
+      myFollowers: 125_000,
+      minPartnerFollowers: 0,
+      languages: ['bn', 'en'],
+      openForBrands: true,
+      brandMinRate: 400,
+    })
+
+    const app = createApp({ db, mindAdapter: scriptedAdapter([]) as never })
+    const baseUrl = await listen(app)
+
+    const res = await fetch(`${baseUrl}/api/open-collabs/negotiate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        creatorId: 'brand_openai',
+        brandName: 'OpenAI',
+        targetId: 'u_nusrat_vlogs',
+        proposal: '[BRAND SPONSORSHIP - $800] Dedicated video sponsorship',
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    const data = (await res.json()) as {
+      collaborationId: string
+      targetId: string
+      targetName: string
+      status: string
+    }
+    expect(data.targetId).toBe('u_nusrat_vlogs')
+    expect(data.targetName).toBe('Nusrat Jahan')
+    expect(data.status).toBe('ready')
+    db.close()
+  })
 })

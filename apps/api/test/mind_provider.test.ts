@@ -338,6 +338,41 @@ describe('adapter resolution', () => {
     expect(answer).toContain('Gaming')
   })
 
+  it('autonomous adapter handles affirmative "yes" and initiates negotiation with top match', async () => {
+    const cfg = loadConfig({})
+    const adapter = resolveMindAdapter(cfg.minds, cfg.groq)
+    const context = {
+      creator: { creatorId: 'u_1', displayName: 'Sam' },
+      details: { niches: ['Music & Audio'], platforms: ['TikTok'], dealbreakers: 'No unpaid collabs' },
+      memories: [],
+      matches: {
+        matches: [
+          { creator: { creatorId: 'c_arif', displayName: 'Arif Beats' }, score: 23, sharedTerms: ['Music'] },
+        ],
+      },
+      collaborations: { collaborations: [] },
+      recentInteractions: [
+        { role: 'mind', content: 'Would you like me to initiate an autonomous negotiation with Arif Beats?' },
+      ],
+    } as any
+
+    const resYes = await adapter.query(context, 'yes')
+    expect(resYes).toContain('Initiating autonomous negotiation with Arif Beats')
+    expect(resYes).toContain('No unpaid collabs')
+
+    const resSpecific = await adapter.query(context, 'negotiate with Arif Beats')
+    expect(resSpecific).toContain('Initiating autonomous negotiation with Arif Beats')
+
+    const resDetails = await adapter.query(context, 'tell me about Arif Beats')
+    expect(resDetails).toContain('Arif Beats is a 23% synergy match')
+
+    const resEscrow = await adapter.query(context, 'how does escrow work?')
+    expect(resEscrow).toContain('smart escrow')
+
+    const resBangla = await adapter.query(context, 'কেমন আছো?')
+    expect(resBangla).toContain('নমস্কার Sam!')
+  })
+
   it('returns a Groq-only adapter when only GROQ_API_KEY is configured', () => {
     const cfg = loadConfig({ GROQ_API_KEY: 'gsk-test' })
     const adapter = resolveMindAdapter(cfg.minds, cfg.groq)

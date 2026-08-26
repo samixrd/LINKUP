@@ -92,7 +92,7 @@ describe('mind chat', () => {
 
   it('shows loading state initially', async () => {
     localStorage.setItem('linkup.creatorId', 'creator-mind')
-    stubFetch([{ method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext(), delayMs: 50 }])
+    stubFetch([{ method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext(), delayMs: 150 }])
 
     await act(async () => {
       renderAppAt('/mind')
@@ -100,7 +100,7 @@ describe('mind chat', () => {
     // Should show skeleton while loading
     expect(document.body.innerHTML).toContain('skeleton')
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 60))
+      await new Promise((r) => setTimeout(r, 200))
     })
     expect(document.body.textContent).toContain('Ada Lovelace')
   })
@@ -449,4 +449,60 @@ describe('mind chat', () => {
     expect(body.query).toBe('electronic question')
     expect(body.memorySearch).toBe('electronic question')
   })
+
+  it('renders interactive negotiation action button when Mind suggests negotiation and clicking starts live flow', async () => {
+    localStorage.setItem('linkup.creatorId', 'creator-mind')
+    localStorage.setItem('linkup_go_open_configured_creator-mind', 'true')
+    stubFetch([
+      {
+        method: 'GET',
+        url: '/api/creators/creator-mind/mind',
+        status: 200,
+        body: {
+          ...mindContext(),
+          matches: {
+            matches: [
+              {
+                creator: { creatorId: 'c_arif', displayName: 'Arif Beats', bio: 'Beatmaker' },
+                score: 23,
+                sharedTerms: ['Music'],
+              },
+            ],
+            total: 1,
+          },
+        },
+      },
+      {
+        method: 'POST',
+        url: '/api/creators/creator-mind/mind/query',
+        status: 200,
+        body: {
+          answer:
+            'Based on your Music focus, your strongest match is Arif Beats (23% match). Would you like me to initiate an autonomous negotiation with them?',
+        },
+      },
+    ])
+
+    await act(async () => {
+      renderAppAt('/mind')
+    })
+    await act(async () => {})
+
+    const input = document.querySelector<HTMLTextAreaElement>('#mind-query')!
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+    await act(async () => {
+      setter?.call(input, 'Who fits me?')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => {
+      document.querySelector('form')?.requestSubmit()
+    })
+    await act(async () => {})
+
+    // Action button should be rendered inside the Mind chat bubble
+    const actionBtn = document.querySelector<HTMLButtonElement>('.mind-chat-actions button')
+    expect(actionBtn).not.toBeNull()
+    expect(actionBtn?.textContent).toContain('Start Live Autonomous Negotiation with Arif Beats')
+  })
 })
+

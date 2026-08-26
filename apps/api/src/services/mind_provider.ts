@@ -77,7 +77,11 @@ export function createGroqFallbackAdapter(groq: GroqConfig): MindAdapter {
   return {
     async query(context: MindContext, input: string): Promise<string> {
       const system = buildGroqSystemPrompt(context)
-      const reply = await groqChatCompletions(groq, system, input.trim())
+      const previousMessages = (context.recentInteractions ?? []).slice(-6).map((i) => ({
+        role: i.role === 'user' ? ('user' as const) : ('assistant' as const),
+        content: i.content,
+      }))
+      const reply = await groqChatCompletions(groq, system, input.trim(), previousMessages)
       const text = stripMarkdown(reply)
       if (!text) throw new Error('Groq fallback returned an empty reply')
       return text
@@ -151,9 +155,18 @@ export function buildGroqSystemPrompt(context: MindContext): string {
     lines.push(`\n[CURRENT COMPATIBLE MATCHES]\n${matchSummaries}`)
   }
 
+  if (context.collaborations.collaborations.length > 0) {
+    const collabSummaries = context.collaborations.collaborations
+      .slice(0, 5)
+      .map((c) => `• Collab ${c.id}: status=${c.status}, initiator=${c.initiatorId}, target=${c.targetId}`)
+      .join('\n')
+    lines.push(`\n[CURRENT COLLABORATIONS & DEALS]\n${collabSummaries}`)
+  }
+
   lines.push(`\n[RESPONSE RULES]`)
   lines.push(
     'Speak like a brilliant, trusted personal manager: short conversational paragraphs, first-person, direct. ' +
+      'When the creator says "yes" or asks to negotiate with a match, affirm enthusiastically and explain what terms and guardrails you will negotiate. ' +
       'Do NOT use markdown or formatting of any kind — no tables, no headers, no bold/italics, ' +
       'no bullet or numbered lists, no "---" dividers, no section titles, no emoji-heavy decoration. ' +
       'Plain prose only. ' +
@@ -167,6 +180,7 @@ export async function groqChatCompletions(
   groq: GroqConfig,
   system: string,
   user: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
 ): Promise<string> {
   let res: Response
   try {
@@ -180,6 +194,7 @@ export async function groqChatCompletions(
         model: groq.model,
         messages: [
           { role: 'system', content: system },
+          ...history,
           { role: 'user', content: user },
         ],
         temperature: 0.7,
@@ -258,15 +273,60 @@ export function createAutonomousMindAdapter(): MindAdapter {
     async query(context: MindContext, input: string): Promise<string> {
       const p = context.creator
       const d = context.details
-      const q = input.toLowerCase()
-      const niche = d?.niches[0] || 'Creative Media'
-      const platform = d?.platforms[0] || 'YouTube'
+      const q = input.toLowerCase().trim()
+      const niche = d?.niches?.[0] || 'Creative Media'
+      const platform = d?.platforms?.[0] || 'YouTube'
       const name = p?.displayName || 'Creator'
-      const allMemories = context.memories.map((m) => m.content).join(' ')
-      const goal = d?.goals[0] || 'rapid audience cross-pollination and impactful creative collabs'
+      const allMemories = (context.memories ?? []).map((m) => m.content).join(' ')
+      const goal = d?.goals?.[0] || 'rapid audience cross-pollination and impactful creative collabs'
+      const dealRule = d?.dealbreakers || 'Language parity required, minimum budget floor respected, and deliverable verification before signing'
+      const matches = context.matches?.matches ?? []
+      const recentInteractions = context.recentInteractions ?? []
+      const lastInteraction = recentInteractions.length > 0 ? recentInteractions[recentInteractions.length - 1] : undefined
 
-      if (q.includes('fit') || q.includes('who') || q.includes('creator') || q.includes('partner')) {
-        const topMatches = context.matches.matches.slice(0, 3)
+      // Check if user is asking to negotiate with a specific creator or saying "yes" to previous prompt
+      const isAffirmative = /^(yes|yep|yeah|sure|ok|okay|go ahead|let'?s do it|do it|start|proceed|start negotiation|initiate|negotiate|agree|y)$/i.test(q)
+      const wantsNegotiation = isAffirmative || /negotiat|initiate|collab with|deal with|start with|reach out to|propose to/i.test(q)
+
+      // Match mentioned explicitly in current user query
+      const explicitMatch = matches.find((m) =>
+        q.includes(m.creator.displayName.toLowerCase()) ||
+        q.includes(m.creator.creatorId.toLowerCase()) ||
+        (m.creator.displayName.split(' ')[0] && m.creator.displayName.split(' ')[0]!.length > 2 && q.includes(m.creator.displayName.split(' ')[0]!.toLowerCase())),
+      )
+
+      // If user confirms negotiation (e.g. "yes", "negotiate with Arif Beats", "start negotiation")
+      if (wantsNegotiation) {
+        let negotiationPartner = explicitMatch
+        if (!negotiationPartner && lastInteraction && lastInteraction.role === 'mind') {
+          const lastText = lastInteraction.content.toLowerCase()
+          negotiationPartner = matches.find((m) =>
+            lastText.includes(m.creator.displayName.toLowerCase()) ||
+            (m.creator.displayName.split(' ')[0] && m.creator.displayName.split(' ')[0]!.length > 2 && lastText.includes(m.creator.displayName.split(' ')[0]!.toLowerCase())),
+          )
+        }
+        const chosenPartner = negotiationPartner ?? matches[0]
+        if (chosenPartner) {
+          return `Initiating autonomous negotiation with ${chosenPartner.creator.displayName} (${chosenPartner.score}% match)! I am reviewing your Go Open guardrails (${dealRule}) and drafting a strategic 3-round proposal tailored to your ${niche} audience on ${platform}. Click the action below to open live AI-to-AI negotiation rounds in real time.`
+        }
+        return `I am ready to negotiate for you. Tap 'Find Collab ⚡' or select a creator from your Matches to let me run autonomous deal rounds balancing your rate floors and deliverable guardrails.`
+      }
+
+      // Specific creator lookup: "who is Arif Beats?", "tell me about Liam Vance"
+      if (explicitMatch) {
+        const match = explicitMatch
+        const shared = match.sharedTerms.length > 0 ? match.sharedTerms.join(', ') : `${niche} content`
+        return `${match.creator.displayName} is a ${match.score}% synergy match for your ${niche} channel on ${platform}. They share audience focus on ${shared}. Would you like me to initiate an autonomous negotiation with ${match.creator.displayName}?`
+      }
+
+      // Bangla / multilingual detection
+      if (/[\u0980-\u09FF]/.test(input) || /bengali|bangla|kemon|nomoshkar/i.test(q)) {
+        return `নমস্কার ${name}! আমি আপনার পার্সোনাল AI Mind। আপনার ${niche} চ্যানেল (${platform})-এর জন্য সঠিক ক্রিয়েটর ম্যাচ খুঁজে নেওয়া এবং স্বয়ংক্রিয়ভাবে লাভজনক ডিল নেগোশিয়েট করতে আমি প্রস্তুত। আপনি আপনার ম্যাচ, গার্ডরেইল বা চুক্তি সম্পর্কে প্রশ্ন করতে পারেন!`
+      }
+
+      // Match and partner inquiries
+      if (q.includes('fit') || q.includes('who') || q.includes('creator') || q.includes('partner') || q.includes('match') || q.includes('suggest')) {
+        const topMatches = matches.slice(0, 3)
         if (topMatches.length > 0) {
           const names = topMatches.map((m) => `${m.creator.displayName} (${m.score}% match)`).join(', ')
           return `Based on your ${niche} focus and ${platform} audience, your strongest current matches are: ${names}. They share complementary audience demographics and align with your guardrails. Would you like me to initiate an autonomous negotiation with one of them?`
@@ -274,17 +334,45 @@ export function createAutonomousMindAdapter(): MindAdapter {
         return `I've analyzed your 12-step creator profile. High-synergy creators in ${niche} and complementary niches on ${platform} or TikTok are your best fit. Tap 'Find Collab ⚡' to have me negotiate a terms-backed cross-promotion with them directly.`
       }
 
-      if (q.includes('guardrail') || q.includes('rule') || q.includes('term') || q.includes('avoid')) {
-        const dealRule = d?.dealbreakers || 'Language parity required, minimum budget respected, and deliverable verification before signing'
+      // Active deals & collaborations inquiries
+      if (q.includes('deal') || q.includes('negotiation') || q.includes('proposal') || q.includes('collab') || q.includes('status') || q.includes('active')) {
+        const collabs = context.collaborations?.collaborations ?? []
+        if (collabs.length > 0) {
+          const summary = collabs
+            .slice(0, 3)
+            .map((c) => `Deal ${c.id.slice(-6)} (Status: ${c.status})`)
+            .join('; ')
+          return `You currently have ${collabs.length} collaboration(s) tracked on LINKUP: ${summary}. I continuously safeguard your interests during counter-proposals and verify deliverable requirements before closing.`
+        }
+        const topMatchName = matches[0]?.creator.displayName || 'top creators'
+        return `You have no active negotiations right now. I can initiate a fresh negotiation with ${topMatchName} or monitor incoming Go Open terms for you!`
+      }
+
+      // Guardrails and rules
+      if (q.includes('guardrail') || q.includes('rule') || q.includes('term') || q.includes('avoid') || q.includes('dealbreaker') || q.includes('policy')) {
         return `Your active guardrails are strictly enforced: ${dealRule}. I will automatically reject misaligned or zero-value proposals during autonomous negotiation rounds.`
       }
 
-      if (q.includes('goal') || q.includes('priority') || q.includes('grow')) {
+      // Goals and growth strategy
+      if (q.includes('goal') || q.includes('priority') || q.includes('grow') || q.includes('scale') || q.includes('strategy')) {
         return `Your primary strategic priority is: ${goal}. Every autonomous negotiation I run will prioritize co-branded distribution, audience cross-pollination, and fair value splits to achieve this.`
       }
 
-      if (q.includes('deal') || q.includes('negotiation') || q.includes('proposal')) {
-        return `I am actively monitoring the LINKUP network for you. Whenever a compatible creator publishes Go Open terms, I evaluate audience thresholds, draft joint blueprints tailored to your ${niche} niche, and negotiate deliverables up to 3 strategic rounds for your review.`
+      // Negotiation mechanics & Escrow explanation
+      if (q.includes('how does') || q.includes('escrow') || q.includes('take over') || q.includes('contract') || q.includes('sign') || q.includes('deliverable')) {
+        return `LINKUP autonomous negotiation runs in 3 AI-to-AI rounds balancing your rate, deliverables, and timeline against your guardrails. You can take over manually anytime. Once both creators sign, funds lock into smart escrow and are released upon verified completion.`
+      }
+
+      // Profile details / about me
+      if (q.includes('about me') || q.includes('who am i') || q.includes('my profile') || q.includes('know about me') || q.includes('memory') || q.includes('memories')) {
+        const details = [
+          `Niche: ${niche}`,
+          `Platform: ${platform}`,
+          d?.audienceSize ? `Audience: ${d.audienceSize}` : '',
+          d?.location ? `Location: ${d.location}` : '',
+          d?.languages && d.languages.length > 0 ? `Languages: ${d.languages.join(', ')}` : '',
+        ].filter(Boolean).join(', ')
+        return `I know your complete profile: ${details}. I have stored ${context.memories.length} memories and guardrails to represent you accurately in every negotiation.`
       }
 
       // Personalized intro using creator's specific style

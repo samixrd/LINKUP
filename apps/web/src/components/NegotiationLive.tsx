@@ -103,7 +103,9 @@ export default function NegotiationLive({
   }, [creatorId, presetTarget])
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+    if (typeof listRef.current?.scrollTo === 'function') {
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+    }
   }, [rounds])
 
   async function handleTakeoverSend(e: React.FormEvent) {
