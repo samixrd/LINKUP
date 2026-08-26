@@ -138,7 +138,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init)
+  // __API_BASE__ is '' in dev (Vite proxy handles /api → localhost:3001).
+  // In production it becomes the Railway URL set via VITE_API_URL.
+  const base = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+  const res = await fetch(`${base}${path}`, init)
   if (!res.ok) {
     let message = `request failed (${res.status})`
     try {

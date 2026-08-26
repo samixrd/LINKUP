@@ -26,6 +26,21 @@ export function createApp({ db, mindAdapter = stubMindAdapter }: AppOptions): ex
   app.disable('x-powered-by')
   app.use(express.json({ limit: '100kb' }))
 
+  // CORS — allow the Vercel frontend to reach the Railway API.
+  // Set ALLOWED_ORIGIN=https://your-app.vercel.app in Railway env vars.
+  const allowedOrigin = process.env.ALLOWED_ORIGIN ?? '*'
+  app.use((_req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin)
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+    if (_req.method === 'OPTIONS') {
+      res.sendStatus(204)
+      return
+    }
+    next()
+  })
+
   app.use('/api/health', createHealthRouter(db))
   app.use('/api/auth', createAuthRouter(db))
   // Mind endpoints hit the external paid Minds provider — rate limit them

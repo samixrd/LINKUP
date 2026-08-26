@@ -98,7 +98,8 @@ export default function BrandPage() {
 
     try {
       const bId = `brand_${(brandName || 'partner').toLowerCase().replace(/\s+/g, '_')}`
-      const res = await fetch('/api/open-collabs/negotiate', {
+      const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+      const res = await fetch(`${apiBase}/api/open-collabs/negotiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
