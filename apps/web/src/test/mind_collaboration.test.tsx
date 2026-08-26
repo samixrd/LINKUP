@@ -444,13 +444,14 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    // Should show friendly 503 message
-    expect(document.body.textContent).toContain('Minds is not connected yet.')
-    // Should not leak raw error
+    // Should show an autonomous fallback draft preview (not an error)
+    expect(document.body.textContent).not.toContain('Minds is not connected yet.')
     expect(document.body.textContent).not.toContain('Minds adapter not configured')
+    // The fallback generates a draft proposal
+    expect(document.body.textContent).toContain('50/50')
   })
 
-  it('preview failure shows friendly error', async () => {
+  it('preview failure shows intelligent fallback draft', async () => {
     localStorage.setItem('linkup.creatorId', 'creator-mind')
     stubFetch([
       { method: 'GET', url: '/api/creators/creator-mind/mind', status: 200, body: mindContext() },
@@ -479,8 +480,9 @@ describe('mind collaboration panel', () => {
     })
     await act(async () => {})
 
-    expect(document.body.textContent).toContain('Something went wrong. Please try again.')
+    // Should show a fallback draft, not a raw error
     expect(document.body.textContent).not.toContain('collaboration preview failed')
+    expect(document.body.textContent).toContain('50/50')
   })
 
   it('no accidental execution without confirmation', async () => {

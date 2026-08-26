@@ -86,6 +86,7 @@ export default function ProposeCollaborationPanel({
           updatedAt: new Date().toISOString(),
         },
         draft: `Hey ${targetName}! Let's create a joint co-branded video cross-promoted on YouTube & TikTok. We can do a 50/50 revenue split with bilingual subtitles and publish within two weeks.`,
+        sharedTerms: ['50/50 revenue split', 'Bilingual subtitles', 'Mutual cross-post', '14-day delivery'],
       })
     } finally {
       setPreviewing(false)
