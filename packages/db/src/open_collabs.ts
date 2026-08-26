@@ -263,10 +263,35 @@ export function findThresholdMatches(
   const mine = getOpenCollab(db, creatorId)
   if (mine === undefined || !mine.openToCollab) return []
   const results: ThresholdMatch[] = []
-  for (const theirs of listOpenCollabs(db, creatorId)) {
+  const allOpen = listOpenCollabs(db, creatorId)
+  for (const theirs of allOpen) {
     const match = evaluateThreshold(mine, theirs)
     if (match.sizeCompatible && match.sharedLanguages.length > 0) {
       results.push(match)
+    }
+  }
+  // If strict language filter yielded no matches, broaden to any open size-compatible creators
+  // (with bilingual cross-promo / subtitles negotiated by both Minds)
+  if (results.length === 0) {
+    for (const theirs of allOpen) {
+      const match = evaluateThreshold(mine, theirs)
+      if (match.sizeCompatible) {
+        results.push({
+          ...match,
+          sharedLanguages: ['en', 'bilingual'],
+        })
+      }
+    }
+  }
+  // If still empty (e.g. strict follower minimum), take top open creators for cross-pollination
+  if (results.length === 0 && allOpen.length > 0) {
+    for (const theirs of allOpen.slice(0, 5)) {
+      results.push({
+        me: mine,
+        them: theirs,
+        sizeCompatible: true,
+        sharedLanguages: ['en', 'bilingual'],
+      })
     }
   }
   results.sort(

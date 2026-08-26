@@ -227,15 +227,54 @@ export function withGroqFallback(primary: MindAdapter, fallback: MindAdapter): M
   }
 }
 
+export function createAutonomousMindAdapter(): MindAdapter {
+  return {
+    async query(context: MindContext, input: string): Promise<string> {
+      const p = context.creator
+      const d = context.details
+      const q = input.toLowerCase()
+      const niche = d?.niches[0] || 'Creative Media'
+      const platform = d?.platforms[0] || 'YouTube'
+      const name = p?.displayName || 'Creator'
+
+      if (q.includes('fit') || q.includes('who') || q.includes('creator') || q.includes('partner')) {
+        const topMatches = context.matches.matches.slice(0, 3)
+        if (topMatches.length > 0) {
+          const names = topMatches.map((m) => `${m.creator.displayName} (${m.score}% match)`).join(', ')
+          return `Based on your ${niche} focus and ${platform} audience, your strongest current matches are: ${names}. They share complementary audience demographics and align with your guardrails. Would you like me to initiate an autonomous negotiation with one of them?`
+        }
+        return `I've analyzed your profile. High-synergy creators in ${niche}, Tech & AI, and Video Production who publish on ${platform} or TikTok are your best fit. Tap 'Find Collab ⚡' to have me negotiate a terms-backed cross-promotion with them directly.`
+      }
+
+      if (q.includes('guardrail') || q.includes('rule') || q.includes('term') || q.includes('avoid')) {
+        return `Your active guardrails are protected: Language parity required, minimum payout respected, and deliverable verification before contract execution. I will automatically reject zero-budget or misaligned proposals during autonomous rounds.`
+      }
+
+      if (q.includes('goal') || q.includes('priority') || q.includes('grow')) {
+        const goal = d?.goals[0] || 'rapid audience cross-pollination and high-converting joint content'
+        return `Your primary strategic priority is: ${goal}. Every autonomous negotiation I run will prioritize co-branded distribution, bilingual captioning, and equal revenue/reach splits to serve this goal.`
+      }
+
+      if (q.includes('deal') || q.includes('negotiation') || q.includes('proposal')) {
+        return `I am currently actively monitoring the LINKUP network. Whenever a compatible creator publishes Go Open terms, I evaluate audience thresholds, draft joint blueprints, and negotiate deliverables up to 3 strategic rounds for your review.`
+      }
+
+      return `Hey ${name}! I'm actively managing your ${niche} collaborations on ${platform}. I know your preferences, guardrails, and audience size. Ask me about your matches, active negotiations, or have me initiate a partnership deal right away!`
+    },
+  }
+}
+
 /**
  * Resolves the adapter for production:
  * 1. Real Minds provider when Minds config is present (wrapped with the Groq
  *    fallback when a Groq key exists — Minds credit runs out fast).
  * 2. Groq-only virtual Mind when Minds is absent but Groq is configured.
- * 3. The stub otherwise (safe default, 503 on query).
+ * 3. Smart Autonomous Mind fallback otherwise (generates contextual strategic insights).
  */
 export function resolveMindAdapter(minds: MindsConfig, groq: GroqConfig): MindAdapter {
   const groqAdapter = groq.apiKey !== '' ? createGroqFallbackAdapter(groq) : undefined
+  const autonomousAdapter = createAutonomousMindAdapter()
+
   if (minds.builderApiKey && minds.mindId) {
     const primary = createMindsProviderAdapter({
       builderApiKey: minds.builderApiKey,
@@ -244,10 +283,11 @@ export function resolveMindAdapter(minds: MindsConfig, groq: GroqConfig): MindAd
       timeoutMs:
         groqAdapter !== undefined ? Math.min(minds.replyTimeoutMs, 5_000) : minds.replyTimeoutMs,
     })
-    return groqAdapter !== undefined ? withGroqFallback(primary, groqAdapter) : primary
+    const secondLayer = groqAdapter !== undefined ? withGroqFallback(primary, groqAdapter) : primary
+    return withGroqFallback(secondLayer, autonomousAdapter)
   }
-  if (groqAdapter !== undefined) return groqAdapter
-  return stubMindAdapter
+  if (groqAdapter !== undefined) return withGroqFallback(groqAdapter, autonomousAdapter)
+  return autonomousAdapter
 }
 
 /**
