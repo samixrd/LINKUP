@@ -1,11 +1,7 @@
 export const LIVE_API_URL = 'https://linkup-api-e2qb.onrender.com'
 
 export function getApiBase(): string {
-  if (typeof __API_BASE__ !== 'undefined' && __API_BASE__) return __API_BASE__
-  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-    return LIVE_API_URL
-  }
-  return ''
+  return typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
 }
 export interface HealthStatus {
   status: 'ok' | 'degraded'
