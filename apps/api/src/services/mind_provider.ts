@@ -8,7 +8,6 @@ import {
   type WaitForReplyOutcome,
 } from '@animocabrands/minds-client-lib'
 import type { MindAdapter, MindContext } from '@linkup/db'
-import { stubMindAdapter } from '@linkup/db'
 import { DEFAULT_MINDS_REPLY_TIMEOUT_MS, type GroqConfig, type MindsConfig } from '../config.js'
 
 /**
