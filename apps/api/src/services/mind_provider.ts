@@ -240,10 +240,9 @@ export function resolveMindAdapter(minds: MindsConfig, groq: GroqConfig): MindAd
     const primary = createMindsProviderAdapter({
       builderApiKey: minds.builderApiKey,
       mindId: minds.mindId,
-      // When a Groq fallback exists, cap the Minds wait so a slow/refusing
-      // Mind hands over to the fallback instead of stalling the demo.
+      // When a Groq fallback exists, fast-fail Minds after 5 seconds so Groq answers instantly
       timeoutMs:
-        groqAdapter !== undefined ? Math.min(minds.replyTimeoutMs, 60_000) : minds.replyTimeoutMs,
+        groqAdapter !== undefined ? Math.min(minds.replyTimeoutMs, 5_000) : minds.replyTimeoutMs,
     })
     return groqAdapter !== undefined ? withGroqFallback(primary, groqAdapter) : primary
   }
