@@ -308,7 +308,7 @@ export function createOpenCollabRouter(
         res.status(503).json({ error: message })
         return
       }
-      res.status(500).json({ error: 'negotiation failed' })
+      res.status(500).json({ error: message || 'negotiation failed' })
     }
   })
 
