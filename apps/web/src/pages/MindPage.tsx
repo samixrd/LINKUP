@@ -461,12 +461,16 @@ export default function MindPage() {
                 <MatchFeed
                   creatorId={creatorId}
                   onCollab={(match) => {
-                    setSection('negotiations')
-                    setProposeOpen(true)
-                    setPendingMatchId(match.creator.creatorId)
+                    setLiveNegotiation({
+                      targetId: match.creator.creatorId,
+                      targetName: match.creator.displayName,
+                    })
                   }}
                   onLiveNegotiate={(match) => {
-                    setLiveNegotiation({ targetId: match.creator.creatorId, targetName: match.creator.displayName })
+                    setLiveNegotiation({
+                      targetId: match.creator.creatorId,
+                      targetName: match.creator.displayName,
+                    })
                   }}
                 />
               </section>
