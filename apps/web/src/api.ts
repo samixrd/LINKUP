@@ -197,7 +197,8 @@ export interface AuthMe {
 }
 
 async function authRequest(path: string, input: unknown): Promise<Response> {
-  return fetch(path, {
+  const base = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+  return fetch(`${base}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -233,7 +234,8 @@ export async function logoutAccount(): Promise<void> {
 }
 
 export async function fetchMe(): Promise<AuthMe | null> {
-  const res = await fetch('/api/auth/me')
+  const base = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+  const res = await fetch(`${base}/api/auth/me`)
   if (res.status === 401) return null
   if (!res.ok) return null
   return res.json()

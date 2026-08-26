@@ -48,7 +48,8 @@ export default function EscrowModal({
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch(`/api/open-collabs/${encodeURIComponent(collaborationId)}/escrow`)
+        const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+        const res = await fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(collaborationId)}/escrow`)
         if (!res.ok) return
         const body = (await res.json()) as { escrow: EscrowState | null; submissions: Submission[] }
         if (cancelled) return
@@ -72,7 +73,8 @@ export default function EscrowModal({
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch(`/api/open-collabs/${encodeURIComponent(collaborationId)}/submit-deliverable`, {
+      const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+      const res = await fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(collaborationId)}/submit-deliverable`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +106,8 @@ export default function EscrowModal({
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch(`/api/open-collabs/${encodeURIComponent(collaborationId)}/dispute`, {
+      const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+      const res = await fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(collaborationId)}/dispute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

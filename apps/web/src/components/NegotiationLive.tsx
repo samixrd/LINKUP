@@ -132,7 +132,8 @@ export default function NegotiationLive({
 
   async function sign(accept: boolean) {
     try {
-      const res = await fetch(`/api/open-collabs/${collaborationId}/sign`, {
+      const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+      const res = await fetch(`${apiBase}/api/open-collabs/${collaborationId}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, accept }),

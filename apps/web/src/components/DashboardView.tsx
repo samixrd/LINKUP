@@ -36,7 +36,8 @@ export default function DashboardView({
     let cancelled = false
     async function loadCard() {
       try {
-        const res = await fetch(`/api/open-collabs/${encodeURIComponent(creatorId)}`)
+        const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+        const res = await fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(creatorId)}`)
         if (!res.ok) return
         const card = (await res.json()) as OpenCollabCard
         if (!cancelled) setOpenCard(card)

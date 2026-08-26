@@ -71,10 +71,11 @@ export default function MindPage() {
 
   function refreshMindContext() {
     if (!creatorId) return
+    const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
     getMindContext(creatorId)
       .then((ctx) => setContext(ctx))
       .catch(() => {})
-    fetch(`/api/open-collabs/${encodeURIComponent(creatorId)}`)
+    fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(creatorId)}`)
       .then((res) => {
         if (res.ok) setHasCompletedGoOpen(true)
       })
@@ -84,6 +85,7 @@ export default function MindPage() {
   useEffect(() => {
     if (!creatorId) return
     let cancelled = false
+    const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
     getMindContext(creatorId)
       .then((ctx) => {
         if (!cancelled) setContext(ctx)
@@ -95,7 +97,7 @@ export default function MindPage() {
         if (!cancelled) setLoadingMind(false)
       })
 
-    fetch(`/api/open-collabs/${encodeURIComponent(creatorId)}`)
+    fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(creatorId)}`)
       .then((res) => {
         if (!cancelled && res.ok) setHasCompletedGoOpen(true)
       })

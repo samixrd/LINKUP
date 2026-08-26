@@ -90,7 +90,8 @@ export default function GoOpenPanel({ creatorId, onClose, onSavedAndMatch }: Pro
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch(`/api/open-collabs/${encodeURIComponent(creatorId)}`)
+        const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+        const res = await fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(creatorId)}`)
         if (!res.ok) return // no card yet — keep defaults
         const card = (await res.json()) as OpenCollabCard
         if (cancelled) return
@@ -157,7 +158,8 @@ export default function GoOpenPanel({ creatorId, onClose, onSavedAndMatch }: Pro
 
     setSaving(true)
     try {
-      const res = await fetch(`/api/open-collabs/${encodeURIComponent(creatorId)}`, {
+      const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+      const res = await fetch(`${apiBase}/api/open-collabs/${encodeURIComponent(creatorId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
