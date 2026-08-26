@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getStoredCreatorId } from '../creator'
 
 export interface NotificationItem {
   id: string
@@ -15,47 +16,77 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   onSelectSection?: (section: 'matches' | 'negotiations' | 'chat' | 'open') => void
+  onUnreadChange?: (count: number) => void
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    type: 'agreement',
-    title: 'Agreement Ready to Sign',
-    message: 'Your Mind and Alex Rivera agreed on 2 joint IG Reels with $400 budget terms.',
-    timeAgo: 'Just now',
-    read: false,
-    actionLabel: 'Review & Sign ✍',
-    actionSection: 'negotiations',
-  },
-  {
-    id: 'n2',
-    type: 'negotiation',
-    title: 'Negotiation Update',
-    message: 'Mind Countered: Resolved bilingual subtitle requirement with Maya Lin.',
-    timeAgo: '12m ago',
-    read: false,
-    actionLabel: 'View Transcript',
-    actionSection: 'negotiations',
-  },
-  {
-    id: 'n3',
-    type: 'match',
-    title: 'New Match Found',
-    message: 'Compatible creator found: Sarah Jenkins (YouTube • 120k followers).',
-    timeAgo: '1h ago',
-    read: true,
-    actionLabel: 'View Match',
-    actionSection: 'matches',
-  },
-]
+export default function NotificationPanel({ isOpen, onClose, onSelectSection, onUnreadChange }: Props) {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [readIds, setReadIds] = useState<Set<string>>(() => new Set())
 
-export default function NotificationPanel({ isOpen, onClose, onSelectSection }: Props) {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS)
+  useEffect(() => {
+    const creatorId = getStoredCreatorId()
+    if (!creatorId) {
+      setNotifications([])
+      if (onUnreadChange) onUnreadChange(0)
+      return
+    }
+
+    let cancelled = false
+    const apiBase = typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : ''
+    fetch(`${apiBase}/api/creators/${encodeURIComponent(creatorId)}/mind`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        const notifs: NotificationItem[] = []
+
+        // Real pending collaborations ready to review/sign
+        const collabs = data.collaborations?.collaborations || []
+        for (const c of collabs) {
+          if (c.status === 'accepted' || c.status === 'pending') {
+            notifs.push({
+              id: `collab_${c.id}`,
+              type: c.status === 'accepted' ? 'agreement' : 'negotiation',
+              title: c.status === 'accepted' ? 'Collaboration Accepted' : 'Active Proposal',
+              message: c.proposal || 'Collaboration terms updated by Mind.',
+              timeAgo: 'Recent',
+              read: readIds.has(`collab_${c.id}`),
+              actionLabel: 'View Collaboration',
+              actionSection: 'negotiations',
+            })
+          }
+        }
+
+        // Real autonomous follow-ups
+        const followUps = data.followUps || []
+        for (const f of followUps) {
+          if (f.status === 'pending') {
+            notifs.push({
+              id: `fu_${f.id}`,
+              type: 'match',
+              title: 'Autonomous Follow-Up Due',
+              message: `Your Mind scheduled a reminder for collaboration ${f.collaborationId.slice(0, 10)}.`,
+              timeAgo: 'Scheduled',
+              read: readIds.has(`fu_${f.id}`),
+              actionLabel: 'Check Status',
+              actionSection: 'negotiations',
+            })
+          }
+        }
+
+        setNotifications(notifs)
+        const unread = notifs.filter((n) => !readIds.has(n.id)).length
+        if (onUnreadChange) onUnreadChange(unread)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, readIds])
 
   if (!isOpen) return null
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length
 
   function markAllAsRead() {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
@@ -92,28 +123,34 @@ export default function NotificationPanel({ isOpen, onClose, onSelectSection }: 
 
       <div className="notif-list">
         {notifications.length === 0 ? (
-          <p className="notif-empty">No notifications yet.</p>
+          <div style={{ padding: '2rem 1.2rem', textAlign: 'center', color: 'var(--ink-soft)', fontSize: '0.85rem' }}>
+            <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>📭</div>
+            <strong>No new notifications</strong>
+            <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem' }}>
+              Your Mind will alert you when you have new matches, proposals, or follow-ups.
+            </p>
+          </div>
         ) : (
-          notifications.map((n) => (
-            <div key={n.id} className={`notif-card ${n.read ? 'is-read' : 'is-unread'}`}>
-              <div className="notif-card-header">
-                <span className={`notif-tag notif-tag--${n.type}`}>
-                  {n.type === 'match' && '⚡ Match'}
-                  {n.type === 'negotiation' && '💬 Negotiation'}
-                  {n.type === 'agreement' && '✍ Agreement'}
-                  {n.type === 'dispute' && '⚠️ Alert'}
-                </span>
-                <span className="notif-time">{n.timeAgo}</span>
+          notifications.map((item) => (
+            <div key={item.id} className={`notif-item ${item.read ? 'is-read' : ''}`}>
+              <div className="notif-item-header">
+                <span className={`notif-tag notif-tag--${item.type}`}>{item.type}</span>
+                <span className="notif-time">{item.timeAgo}</span>
               </div>
-              <p className="notif-title">{n.title}</p>
-              <p className="notif-desc">{n.message}</p>
-              {n.actionLabel && (
+              <h4 className="notif-title">{item.title}</h4>
+              <p className="notif-msg">{item.message}</p>
+              {item.actionLabel && (
                 <button
                   type="button"
-                  className="btn btn-sm btn-ghost notif-action-btn"
-                  onClick={() => handleAction(n)}
+                  className="notif-action-btn"
+                  onClick={() => {
+                    if (item.actionSection && onSelectSection) {
+                      onSelectSection(item.actionSection)
+                      onClose()
+                    }
+                  }}
                 >
-                  {n.actionLabel} →
+                  {item.actionLabel} →
                 </button>
               )}
             </div>

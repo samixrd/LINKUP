@@ -61,6 +61,7 @@ export default function Shell({ children, onNavigateTab }: ShellProps) {
   const onMind = typeof window !== 'undefined' && window.location.pathname === '/mind'
   const onBrand = typeof window !== 'undefined' && window.location.pathname === '/brand'
   const [notifsOpen, setNotifsOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const statusLabel =
     apiStatus === 'online' ? 'API online' : apiStatus === 'offline' ? 'API offline' : 'API checking'
 
@@ -89,11 +90,12 @@ export default function Shell({ children, onNavigateTab }: ShellProps) {
               onClick={() => setNotifsOpen((prev) => !prev)}
               aria-label="Toggle notifications panel"
             >
-              🔔 <span className="notif-badge-pill">2</span>
+              🔔 {unreadCount > 0 && <span className="notif-badge-pill">{unreadCount}</span>}
             </button>
             <NotificationPanel
               isOpen={notifsOpen}
               onClose={() => setNotifsOpen(false)}
+              onUnreadChange={setUnreadCount}
               onSelectSection={(sec) => {
                 if (onNavigateTab) onNavigateTab(sec)
               }}
