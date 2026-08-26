@@ -79,7 +79,7 @@ export function createGroqFallbackAdapter(groq: GroqConfig): MindAdapter {
     async query(context: MindContext, input: string): Promise<string> {
       const system = buildGroqSystemPrompt(context)
       const reply = await groqChatCompletions(groq, system, input.trim())
-      const text = reply.trim()
+      const text = stripMarkdown(reply)
       if (!text) throw new Error('Groq fallback returned an empty reply')
       return text
     },
@@ -127,6 +127,12 @@ export function buildGroqSystemPrompt(context: MindContext): string {
     lines.push(`LINKUP matches: ${names}`)
   }
   lines.push('Reply in plain, warm, honest language, as a helpful personal assistant.')
+  lines.push(
+    'Write like you are texting a friend: short conversational paragraphs, first-person, direct. ' +
+      'Do NOT use markdown or formatting of any kind — no tables, no headers, no bold/italics, ' +
+      'no bullet or numbered lists, no "---" dividers, no section titles, no emoji-heavy decoration. ' +
+      'Plain prose only.',
+  )
   return lines.join('\n')
 }
 
@@ -169,6 +175,35 @@ export async function groqChatCompletions(
     throw new Error('Groq fallback returned no content')
   }
   return content
+}
+
+/**
+ * Post-processes a fallback reply into plain chat text. The model is
+ * instructed to avoid markdown, but this strips any that slips through so a
+ * Mind reply never looks like a generated report (tables, headers, bold,
+ * dividers, bullet symbols → plain prose).
+ */
+export function stripMarkdown(text: string): string {
+  let out = text
+  // Drop markdown table lines (| a | b |) and their separator rows.
+  out = out
+    .split('\n')
+    .filter((line) => !/^\s*\|.*\|\s*$/.test(line))
+    .join('\n')
+  // Drop standalone '---' / '***' divider lines.
+  out = out.replace(/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/gm, '')
+  // Strip ATX headers (#..)
+  out = out.replace(/^\s*#{1,6}\s+/gm, '')
+  // Strip inline markdown (bold/italics/code).
+  out = out.replace(/\*\*([^*]+)\*\*/g, '$1')
+  out = out.replace(/\*([^*]+)\*/g, '$1')
+  out = out.replace(/`([^`]+)`/g, '$1')
+  // Normalize list-bullet lines into plain sentences (drop the symbol).
+  out = out.replace(/^\s*[-+*]\s+/gm, '')
+  out = out.replace(/^\s*\d+[.)]\s+/gm, '')
+  // Collapse 3+ blank lines to a single one.
+  out = out.replace(/\n{3,}/g, '\n\n')
+  return out.trim()
 }
 
 /**

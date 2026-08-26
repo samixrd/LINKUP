@@ -26,6 +26,7 @@ import {
   buildMindPrompt,
   createMindsProviderAdapter,
   resolveMindAdapter,
+  stripMarkdown,
   withGroqFallback,
   type MindsMessagingClient,
 } from '../src/services/mind_provider.js'
@@ -389,6 +390,42 @@ describe('adapter resolution', () => {
     const fallback: MindAdapter = { async query() { throw new Error('fallback failed') } }
     const wrapped = withGroqFallback(primary, fallback)
     await expect(wrapped.query({} as never, 'test')).rejects.toThrow('primary failed')
+  })
+
+  it('stripMarkdown converts table/header/bold replies to plain prose', () => {
+    const input = [
+      '# Header',
+      '',
+      '| a | b |',
+      '|---|---|',
+      '| 1 | 2 |',
+      '',
+      '**bold** and `code`',
+      '',
+      '---',
+      '',
+      '- bullet one',
+      '- bullet two',
+      '',
+      '1. numbered',
+    ].join('\n')
+    const out = stripMarkdown(input)
+    expect(out).not.toContain('#')
+    expect(out).not.toContain('|')
+    expect(out).not.toContain('**')
+    expect(out).not.toContain('`')
+    expect(out).not.toContain('---')
+    expect(out).toContain('bold and code')
+    expect(out).toContain('bullet one')
+    expect(out).toContain('numbered')
+  })
+
+  it('buildGroqSystemPrompt forbids markdown formatting', () => {
+    const db = seedDb()
+    const prompt = buildGroqSystemPrompt(buildMindContext(db, 'prov_a'))
+    expect(prompt).toMatch(/Do NOT use markdown/i)
+    expect(prompt).toMatch(/Plain prose only/i)
+    db.close()
   })
 
   it('buildGroqSystemPrompt includes profile details and memories', () => {
