@@ -156,3 +156,13 @@ export type {
 } from './mind_interactions.js'
 export { seedDemoAccounts, DEMO_CREATORS } from './seed.js'
 export type { DemoCreatorSeed } from './seed.js'
+export {
+  registerBrandAccount,
+  loginBrand,
+  resolveBrandSession,
+  logoutBrandSession,
+  getBrandAccount,
+  updateBrandMind,
+  BRAND_SESSION_TTL_MS,
+} from './brand_auth.js'
+export type { BrandAccount, BrandSession, RegisterBrandInput } from './brand_auth.js'

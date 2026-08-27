@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import type Database from 'better-sqlite3'
+import { createBrandAuthRouter } from './routes/brand_auth.js'
 import { createCollaborationsRouter } from './routes/collaborations.js'
 import { createHealthRouter } from './routes/health.js'
 import { createCreatorsRouter } from './routes/creators/index.js'
@@ -43,6 +44,7 @@ export function createApp({ db, mindAdapter = stubMindAdapter }: AppOptions): ex
 
   app.use('/api/health', createHealthRouter(db))
   app.use('/api/auth', createAuthRouter(db))
+  app.use('/api/brands', createBrandAuthRouter(db))
   // Mind endpoints hit the external paid Minds provider — rate limit them
   // per creator (30 requests / minute) before they reach any handler.
   const mindRateLimiter = createRateLimiter({ max: 30, windowMs: 60_000 })
