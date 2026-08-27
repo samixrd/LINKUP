@@ -35,6 +35,14 @@ const LANGUAGES = [
   { code: 'fr', label: 'French' },
 ]
 
+interface BrandInterviewState {
+  industry: string
+  targetPlatform: string
+  collabFormat: string
+  budgetTier: string
+  guardrails: string
+}
+
 export default function BrandPage() {
   const [brandName, setBrandName] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -61,6 +69,29 @@ export default function BrandPage() {
   const [proposalStatus, setProposalStatus] = useState<string | null>(null)
   const [liveNegotiation, setLiveNegotiation] = useState<{ targetId?: string; targetName?: string } | null>(null)
 
+  // Brand Mind 5-Question Setup State
+  const [showInterviewModal, setShowInterviewModal] = useState(false)
+  const [brandMindReady, setBrandMindReady] = useState(false)
+  const [interviewAnswers, setInterviewAnswers] = useState<BrandInterviewState>({
+    industry: 'Tech & AI',
+    targetPlatform: 'Instagram',
+    collabFormat: 'Dedicated 60s Reel / TikTok',
+    budgetTier: '$300 - $1,000',
+    guardrails: 'Family-friendly content only',
+  })
+  const [answeredCount, setAnsweredCount] = useState(5)
+
+  useEffect(() => {
+    const bName = brandName.trim() || (typeof window !== 'undefined' ? localStorage.getItem('linkup.brandName') : '')
+    if (bName && bName.trim()) {
+      setBrandMindReady(true)
+      setAnsweredCount(5)
+    } else {
+      setBrandMindReady(false)
+      setAnsweredCount(0)
+    }
+  }, [brandName])
+
   function handleBrandNameChange(val: string) {
     setBrandName(val)
     if (typeof window !== 'undefined') {
@@ -68,6 +99,26 @@ export default function BrandPage() {
       const bId = `brand_${val.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'partner'}`
       localStorage.setItem('linkup.brandId', bId)
     }
+    if (val.trim()) {
+      setBrandMindReady(true)
+      setAnsweredCount(5)
+    } else {
+      setBrandMindReady(false)
+      setAnsweredCount(0)
+    }
+  }
+
+  function handleSaveBrandMind(answers: BrandInterviewState) {
+    setInterviewAnswers(answers)
+    setSelectedNiche(answers.industry)
+    if (answers.targetPlatform !== 'Multi-Platform') {
+      setSelectedPlatform(answers.targetPlatform)
+    }
+    setContentType(answers.collabFormat)
+    setCampaignBrief(`Brand Guardrails: ${answers.guardrails} | Preferred format: ${answers.collabFormat}`)
+    setBrandMindReady(true)
+    setAnsweredCount(5)
+    setShowInterviewModal(false)
   }
 
   // Fetch open creators filtered for brands
@@ -102,6 +153,10 @@ export default function BrandPage() {
   }, [selectedNiche, selectedPlatform, minFollowers, selectedLanguage])
 
   function handleOpenProposal(creator: OpenCollabCard) {
+    if (!brandMindReady) {
+      setShowInterviewModal(true)
+      return
+    }
     setActiveModalCreator(creator)
     const suggestedPrice = creator.brandMinRate && creator.brandMinRate > 0 ? creator.brandMinRate : Number(budgetPerCreator) > 0 ? Number(budgetPerCreator) : 250
     setOfferPrice(String(suggestedPrice))
@@ -197,27 +252,45 @@ export default function BrandPage() {
             <p className="card-kicker">Brand Campaign Brief</p>
             <h2 className="card-title">Campaign Specs</h2>
 
-            {/* Brand Mind Identity Status */}
+            {/* Brand Mind Identity Status & 5-Question Interview Banner */}
             <div
               className="brand-mind-banner"
               style={{
-                background: 'var(--paper, #f7f9fa)',
-                border: '1.5px solid var(--ink)',
-                padding: '0.65rem 0.85rem',
+                background: brandMindReady ? 'var(--paper, #f7f9fa)' : 'rgba(255, 193, 7, 0.08)',
+                border: brandMindReady ? '1.5px solid var(--ink)' : '1.5px dashed var(--accent, #f59e0b)',
+                padding: '0.75rem 0.85rem',
                 marginBottom: '1.1rem',
+                borderRadius: '4px',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700 }}>
-                  🏷️ Mind: {brandDisplayName}
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', fontWeight: 700 }}>
+                  🏷️ Mind: {brandDisplayName} ({brandDisplayId})
                 </span>
-                <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>
-                  {brandDisplayId}
+                <span className={`badge ${brandMindReady ? 'badge-accent' : 'badge-warn'}`} style={{ fontSize: '0.68rem' }}>
+                  {brandMindReady ? '● Mind Active' : '⚠️ Setup Needed'}
                 </span>
               </div>
-              <p style={{ fontSize: '0.72rem', color: 'var(--ink-soft)', marginTop: '0.25rem', marginBottom: 0 }}>
-                ● Autonomous Brand Negotiator Active & Escrow-Ready
+              <p style={{ fontSize: '0.74rem', color: brandMindReady ? 'var(--ink-soft)' : '#b45309', marginTop: '0.35rem', marginBottom: '0.45rem' }}>
+                {brandMindReady
+                  ? '● Autonomous Brand Negotiator Active & Ready for Creator Deals'
+                  : `⚠️ Collab Locked: Answer 5 core Brand Mind questions to send offers to creators.`}
               </p>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '0.2rem 0.6rem',
+                  width: '100%',
+                  textAlign: 'center',
+                  background: brandMindReady ? 'rgba(0,0,0,0.03)' : 'var(--ink)',
+                  color: brandMindReady ? 'var(--ink)' : '#fff',
+                }}
+                onClick={() => setShowInterviewModal(true)}
+              >
+                {brandMindReady ? '⚙️ Review Brand Mind Setup (5/5 Complete)' : '⚡ Complete 5-Question Brand Mind Setup →'}
+              </button>
             </div>
 
             <div className="form-grid">
@@ -511,6 +584,129 @@ export default function BrandPage() {
                     className="btn btn-ghost"
                     onClick={() => setActiveModalCreator(null)}
                     disabled={sendingProposal}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Brand Mind 5-Question Guided Setup Modal */}
+        {showInterviewModal && (
+          <div className="escrow-modal-overlay" role="dialog" aria-modal="true">
+            <div className="card escrow-modal" style={{ maxWidth: '38rem', width: '100%' }}>
+              <div className="escrow-modal-header">
+                <div>
+                  <span className="badge badge-accent">Brand Mind Setup (5 Core Questions)</span>
+                  <h3 className="card-title" style={{ marginTop: '0.4rem' }}>Train Your Autonomous Brand Mind</h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--ink-soft)', margin: 0 }}>
+                    Just like creators, your Brand Mind needs core context (industry, target platforms, formats, budget & safety rules) before it can negotiate deals.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowInterviewModal(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="form-grid" style={{ marginTop: '0.8rem' }}>
+                <label className="field">
+                  <span className="field-label">1. Brand Industry / Category</span>
+                  <select
+                    className="field-input"
+                    value={interviewAnswers.industry}
+                    onChange={(e) =>
+                      setInterviewAnswers((prev) => ({ ...prev, industry: e.target.value }))
+                    }
+                  >
+                    {NICHES.filter((n) => n !== 'All Niches').map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="field-label">2. Target Platform for Creator Content</span>
+                  <select
+                    className="field-input"
+                    value={interviewAnswers.targetPlatform}
+                    onChange={(e) =>
+                      setInterviewAnswers((prev) => ({ ...prev, targetPlatform: e.target.value }))
+                    }
+                  >
+                    <option value="Instagram">Instagram</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="Twitch">Twitch</option>
+                    <option value="Multi-Platform">Multi-Platform</option>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="field-label">3. Desired Deliverable / Ad Format</span>
+                  <select
+                    className="field-input"
+                    value={interviewAnswers.collabFormat}
+                    onChange={(e) =>
+                      setInterviewAnswers((prev) => ({ ...prev, collabFormat: e.target.value }))
+                    }
+                  >
+                    {CONTENT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="field-label">4. Sponsor Budget Tier per Creator</span>
+                  <select
+                    className="field-input"
+                    value={interviewAnswers.budgetTier}
+                    onChange={(e) =>
+                      setInterviewAnswers((prev) => ({ ...prev, budgetTier: e.target.value }))
+                    }
+                  >
+                    <option value="$100 - $300">$100 – $300 (Micro / Emerging)</option>
+                    <option value="$300 - $1,000">$300 – $1,000 (Mid-tier Growth)</option>
+                    <option value="$1,000 - $5,000">$1,000 – $5,000 (Established Pro)</option>
+                    <option value="$5,000+">$5,000+ (High Reach / Macro)</option>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="field-label">5. Brand Safety Rules & Mandatory Guardrails</span>
+                  <input
+                    className="field-input"
+                    type="text"
+                    placeholder="e.g. Family-friendly only, 30-day competitor exclusivity, FTC tags..."
+                    value={interviewAnswers.guardrails}
+                    onChange={(e) =>
+                      setInterviewAnswers((prev) => ({ ...prev, guardrails: e.target.value }))
+                    }
+                  />
+                </label>
+
+                <div className="mind-save-actions" style={{ marginTop: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => handleSaveBrandMind(interviewAnswers)}
+                  >
+                    Save & Activate Brand Mind ⚡
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setShowInterviewModal(false)}
                   >
                     Cancel
                   </button>

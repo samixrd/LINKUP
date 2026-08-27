@@ -8,7 +8,11 @@ import {
   totalDetailFields,
   type ProfileDetailsUpdates,
 } from '@linkup/db'
-import { INTERVIEW_QUESTIONS, applyInterviewAnswer } from '../../services/mind_interview.js'
+import {
+  INTERVIEW_QUESTIONS,
+  BRAND_INTERVIEW_QUESTIONS,
+  applyInterviewAnswer,
+} from '../../services/mind_interview.js'
 import { isNonEmptyString, isNonEmptyStringArray } from './shared.js'
 
 /**
@@ -59,44 +63,26 @@ export function registerCreatorDetailsRoutes(
     const allowedFields = [
       'niches', 'platforms', 'audienceSize', 'collabTypes', 'availability',
       'location', 'goals', 'dealbreakers', 'portfolioUrl',
+      'partnerMinAudience', 'partnerMaxAudience', 'partnerNiches',
+      'minAvgViews', 'languages', 'preferredPlatforms', 'compensation',
+      'minBudget', 'openToSmall', 'avgViews', 'contentFormat',
+      'postingFrequency', 'editingSkills', 'equipment', 'audienceAge',
+      'audienceRegions', 'collabExperience', 'growthStage', 'timezone',
     ] as const
-    for (const field of allowedFields) {
-      const value = (body as Record<string, unknown>)[field]
-      if (value !== undefined) {
-        if (Array.isArray(value)) {
-          if (!isNonEmptyStringArray(value)) {
-            res.status(400).json({ error: `${field} must be a non-empty array of strings` })
-            return
-          }
-          // @ts-expect-error dynamic field write
-          updates[field] = value
-        } else if (typeof value === 'string') {
-          // @ts-expect-error dynamic field write
-          updates[field] = value === '' ? null : value
-        } else {
-          res.status(400).json({ error: `${field} must be a string or string array` })
-          return
-        }
+    for (const key of allowedFields) {
+      if (key in body) {
+        ;(updates as Record<string, unknown>)[key] = (body as Record<string, unknown>)[key]
       }
-    }
-
-    if (Object.keys(updates).length === 0) {
-      res.status(400).json({ error: 'update must contain at least one valid field' })
-      return
     }
 
     try {
-      const details = setProfileDetails(db, creatorId, updates)
+      setProfileDetails(db, creatorId, updates)
+      const details = getProfileDetails(db, creatorId)
       const completeness = profileDetailsCompleteness(db, creatorId)
-      const total = totalDetailFields()
-      res.json({ details, completeness, total })
+      res.json({ details, completeness })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      if (message.includes('creator profile not found')) {
-        res.status(404).json({ error: message })
-        return
-      }
-      throw err
+      res.status(400).json({ error: message })
     }
   })
 
@@ -111,41 +97,28 @@ export function registerCreatorDetailsRoutes(
       res.status(404).json({ error: `creator not found: ${creatorId}` })
       return
     }
+    const isBrand = creatorId.startsWith('brand_')
+    const questionBank = isBrand ? BRAND_INTERVIEW_QUESTIONS : INTERVIEW_QUESTIONS
     const completeness = profileDetailsCompleteness(db, creatorId)
     // Find the first unanswered question
-    const firstUnanswered = INTERVIEW_QUESTIONS.find((q) => {
+    const firstUnanswered = questionBank.find((q) => {
       const details = getProfileDetails(db, creatorId)
       if (details === undefined) return true
-      switch (q.field) {
-        case 'niches':
-          return details.niches.length === 0
-        case 'platforms':
-          return details.platforms.length === 0
-        case 'audienceSize':
-          return details.audienceSize === null
-        case 'collabTypes':
-          return details.collabTypes.length === 0
-        case 'availability':
-          return details.availability === null
-        case 'location':
-          return !details.location
-        case 'goals':
-          return details.goals.length === 0
-        case 'dealbreakers':
-          return !details.dealbreakers
-        case 'portfolioUrl':
-          return !details.portfolioUrl
-      }
+      const val = (details as Record<string, unknown>)[q.field]
+      if (val === null || val === undefined) return true
+      if (Array.isArray(val)) return val.length === 0
+      if (typeof val === 'string') return val.trim() === ''
+      return false
     })
     res.json({
-      questions: INTERVIEW_QUESTIONS.map((q) => ({
+      questions: questionBank.map((q) => ({
         id: q.id,
         prompt: q.prompt,
         options: q.options ?? null,
       })),
       firstUnanswered: firstUnanswered?.id ?? null,
       completeness,
-      total: totalDetailFields(),
+      total: questionBank.length,
     })
   })
 

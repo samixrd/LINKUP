@@ -68,6 +68,80 @@ export interface InterviewQuestion {
   memoryTemplate: string
 }
 
+export const BRAND_INTERVIEW_QUESTIONS: InterviewQuestion[] = [
+  {
+    id: 'brand_industry',
+    prompt: 'What industry or product category does your brand belong to?',
+    options: [
+      { value: 'Tech & AI', label: 'Tech & AI' },
+      { value: 'Gaming & Esports', label: 'Gaming & Esports' },
+      { value: 'Fashion & Beauty', label: 'Fashion & Beauty' },
+      { value: 'Fitness & Health', label: 'Fitness & Health' },
+      { value: 'Education & Learning', label: 'Education & Learning' },
+      { value: 'Food & Beverage', label: 'Food & Beverage' },
+      { value: 'Lifestyle & Travel', label: 'Lifestyle & Travel' },
+      { value: 'Finance & Crypto', label: 'Finance & Crypto' },
+    ],
+    field: 'niches',
+    memoryCategory: 'preference',
+    memoryTemplate: 'Brand industry / category: {answer}',
+  },
+  {
+    id: 'brand_target_platform',
+    prompt: 'Which primary platforms are you targeting for your creator campaigns?',
+    options: [
+      { value: 'Instagram', label: 'Instagram' },
+      { value: 'YouTube', label: 'YouTube' },
+      { value: 'TikTok', label: 'TikTok' },
+      { value: 'Twitch', label: 'Twitch' },
+      { value: 'Multi-Platform', label: 'Multi-Platform' },
+    ],
+    field: 'preferredPlatforms',
+    memoryCategory: 'preference',
+    memoryTemplate: 'Target ad platforms: {answer}',
+  },
+  {
+    id: 'brand_collab_format',
+    prompt: 'What content formats are you seeking from creator partners?',
+    options: [
+      { value: 'Dedicated 60s Reel / TikTok', label: 'Dedicated 60s Reel / TikTok' },
+      { value: 'YouTube 90s Integration', label: 'YouTube 90s Integration' },
+      { value: 'Full Dedicated Video', label: 'Full Dedicated Video' },
+      { value: 'UGC Ad Creative Asset', label: 'UGC Ad Creative Asset' },
+      { value: 'Story + Link Sticker', label: 'Story + Link Sticker' },
+    ],
+    field: 'contentFormat',
+    memoryCategory: 'goal',
+    memoryTemplate: 'Preferred ad deliverables: {answer}',
+  },
+  {
+    id: 'brand_budget_tier',
+    prompt: 'What is your typical budget tier per creator for sponsorships?',
+    options: [
+      { value: '$100 - $300', label: '$100 – $300 (Micro / Emerging)' },
+      { value: '$300 - $1,000', label: '$300 – $1,000 (Mid-tier Growth)' },
+      { value: '$1,000 - $5,000', label: '$1,000 – $5,000 (Established Pro)' },
+      { value: '$5,000+', label: '$5,000+ (High Reach / Macro)' },
+    ],
+    field: 'minBudget',
+    memoryCategory: 'constraint',
+    memoryTemplate: 'Brand sponsor budget per creator: {answer}',
+  },
+  {
+    id: 'brand_guardrails',
+    prompt: 'What are your mandatory brand safety rules and dealbreakers?',
+    options: [
+      { value: 'Family-friendly content only', label: 'Family-friendly content only' },
+      { value: '30-day competitor exclusivity', label: '30-day competitor exclusivity' },
+      { value: 'Pre-approval of script/draft required', label: 'Pre-approval of script/draft required' },
+      { value: 'Clear FTC / Ad disclosures mandatory', label: 'Clear FTC / Ad disclosures mandatory' },
+    ],
+    field: 'dealbreakers',
+    memoryCategory: 'constraint',
+    memoryTemplate: 'Brand safety guardrails and dealbreakers: {answer}',
+  },
+]
+
 export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
   {
     id: 'niches',
@@ -425,7 +499,8 @@ export function applyInterviewAnswer(
   if (typeof creatorId !== 'string' || creatorId.trim() === '') {
     throw new Error('creatorId is required and must be a non-empty string')
   }
-  const question = INTERVIEW_QUESTIONS.find((q) => q.id === input.questionId)
+  const allQuestions = [...BRAND_INTERVIEW_QUESTIONS, ...INTERVIEW_QUESTIONS]
+  const question = allQuestions.find((q) => q.id === input.questionId)
   if (question === undefined) {
     throw new Error(`unknown interview question: ${input.questionId}`)
   }
