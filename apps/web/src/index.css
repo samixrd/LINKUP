@@ -37,6 +37,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden; /* prevent horizontal scroll on mobile */
 }
 
 body {
@@ -50,6 +51,7 @@ body {
     linear-gradient(90deg, rgba(15, 28, 43, 0.05) 1px, transparent 1px);
   background-size: 44px 44px;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; /* prevent horizontal scroll on mobile */
 }
 
 /* The thin ink frame around the viewport, like the reference design. */
@@ -493,7 +495,15 @@ body::after {
     padding: 3rem 1rem 2rem;
   }
   .landing-brand-banner {
-    padding: 2rem 1.5rem;
+    grid-template-columns: 1fr;
+    padding: 1.75rem 1.25rem;
+    gap: 1.5rem;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .landing-brand-badges {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 }
 
@@ -3161,4 +3171,333 @@ textarea.field-input {
   background: #ffffff;
 }
 
+/* ============================================================
+   MOBILE RESPONSIVENESS — comprehensive overrides
+   All breakpoints consolidated here for easy maintenance:
+   • ≤960px  tablets and small laptops
+   • ≤768px  large phones (landscape) / small tablets
+   • ≤540px  phones (portrait)
+   • ≤400px  small phones (SE, Galaxy A series, etc.)
+   ============================================================ */
 
+/* ---- 960px: tablets ---- */
+@media (max-width: 960px) {
+  /* Brand portal: 2-col → 1-col */
+  .brand-portal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Landing hero side card fills width */
+  .hero-side {
+    width: 100%;
+    max-width: 32rem;
+    margin: 0 auto;
+  }
+
+  /* Landing stats grid: 2 columns */
+  .landing-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Feature grid: 2 columns */
+  .landing-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ---- 768px: large phones ---- */
+@media (max-width: 768px) {
+  /* Header: allow logo + nav to wrap */
+  .site-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.6rem 0.85rem 0.7rem;
+  }
+
+  /* Nav: smaller text, closer together */
+  .site-nav {
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .site-nav a {
+    font-size: 0.6rem;
+    padding: 0.25rem 0.4rem;
+    letter-spacing: 0.07em;
+  }
+
+  /* Hero: single column, tighter */
+  .hero {
+    padding: 1.5rem 0.9rem 2rem;
+    min-height: unset;
+  }
+
+  .hero-side {
+    max-width: 100%;
+  }
+
+  /* Cards should not overflow on mobile */
+  .card {
+    width: 100%;
+    max-width: 100%;
+    padding: 1.4rem 1.2rem;
+    box-shadow: 4px 4px 0 rgba(15, 28, 43, 0.85);
+  }
+
+  /* Landing grid: single column */
+  .landing-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Landing stats: single column */
+  .landing-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Landing brand banner: already handled above */
+
+  /* Landing section padding */
+  .landing-section {
+    padding: 2.5rem 0.9rem 2rem;
+  }
+
+  .landing-section--alt {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  /* Brand page */
+  .brand-page {
+    padding: 1rem 0.75rem 2rem;
+    gap: 1rem;
+  }
+
+  .brand-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.1rem 1.1rem;
+    gap: 1rem;
+    box-shadow: 4px 4px 0 rgba(15, 28, 43, 0.85);
+  }
+
+  .brand-title {
+    font-size: 1.4rem;
+  }
+
+  .brand-header-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .stat-pill {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .stat-num {
+    font-size: 1.1rem;
+  }
+
+  /* Creator cards: single column */
+  .brand-creator-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Mind page */
+  .mind-page {
+    padding: 1rem 0.75rem 1.5rem;
+    gap: 1rem;
+  }
+
+  .mind-header {
+    padding: 1rem 1rem;
+  }
+
+  .mind-title {
+    font-size: 1.25rem;
+  }
+
+  .mind-tabs {
+    gap: 0.3rem;
+  }
+
+  .mind-tab {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.66rem;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+
+  /* Footer: wrap items */
+  .site-footer {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.3rem;
+    padding: 0.5rem 0.8rem 0.4rem;
+    font-size: 0.6rem;
+  }
+
+  .site-footer-cell--center {
+    display: none;
+  }
+
+  /* Buttons: sensible sizing */
+  .btn {
+    font-size: 0.76rem;
+    padding: 0.6rem 1rem;
+  }
+
+  /* Modals: full-width on mobile */
+  .modal-overlay {
+    padding: 1rem 0.75rem;
+    align-items: flex-end;
+  }
+
+  .modal-box {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+    padding: 1.2rem 1rem;
+    border-radius: 0;
+    overflow-y: auto;
+  }
+}
+
+/* ---- 540px: phones (portrait) ---- */
+@media (max-width: 540px) {
+  body::after {
+    inset: 5px;
+  }
+
+  .shell {
+    padding: 7px;
+  }
+
+  /* Hide sticker decorations that eat space */
+  .sticker--qr,
+  .sticker--star {
+    display: none;
+  }
+
+  /* Hero: very compact */
+  .hero {
+    padding: 1.2rem 0.7rem 1.5rem;
+    gap: 1.5rem;
+  }
+
+  /* Display font: clamp tighter */
+  .display {
+    font-size: clamp(3rem, 18vw, 5rem);
+  }
+
+  .tagline {
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  /* Hero feat pills: wrap */
+  .hero-feats {
+    gap: 0.35rem;
+    margin-top: 1.1rem;
+  }
+
+  .hero-feats li {
+    font-size: 0.6rem;
+    padding: 0.28rem 0.6rem;
+  }
+
+  /* Card: minimal padding */
+  .card {
+    padding: 1.1rem 1rem;
+  }
+
+  /* Brand header stats: 3 cols still but tighter */
+  .brand-header-stats {
+    gap: 0.35rem;
+  }
+
+  .stat-num {
+    font-size: 1rem;
+  }
+
+  .stat-txt {
+    font-size: 0.55rem;
+  }
+
+  /* Mind chat bubble */
+  .mind-bubble {
+    max-width: 95%;
+  }
+
+  .mind-messages {
+    padding: 0.8rem;
+    min-height: 12rem;
+  }
+
+  /* Negotiation panel */
+  .nego-panel {
+    padding: 0.9rem;
+  }
+
+  /* Section title */
+  .landing-section-title {
+    font-size: clamp(1.4rem, 6vw, 2rem);
+  }
+
+  /* Feature card */
+  .landing-feature-card {
+    padding: 1.2rem;
+  }
+
+  /* Brand creator card */
+  .brand-creator-card {
+    padding: 1rem;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+  /* Interview modal on phone */
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal-box {
+    border-radius: 0;
+    padding: 1rem 0.9rem 1.4rem;
+    max-height: 85vh;
+  }
+}
+
+/* ---- 400px: extra-small phones ---- */
+@media (max-width: 400px) {
+  /* Nav: minimal labels only */
+  .site-nav a {
+    font-size: 0.55rem;
+    padding: 0.2rem 0.32rem;
+  }
+
+  /* Brand stats: compact row */
+  .brand-header-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .stat-pill {
+    padding: 0.4rem 0.3rem;
+  }
+
+  /* Mind input: stacked on tiny screens */
+  .mind-input-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .mind-input-row .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Collab stats row: 2 cells per row */
+  .creator-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
