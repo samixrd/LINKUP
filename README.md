@@ -140,13 +140,13 @@ Follow these steps to run the complete LINKUP project locally from a fresh clone
 
 ### 1. Prerequisites
 - **Node.js**: `v22.0.0` or higher (`node -v`)
-- **npm**: `v10.0.0` or higher (`npm -v`)
+- **npm** or **pnpm**: `npm v10+` / `pnpm v9+`
 - **Git**
 
 ### 2. Clone the Repository
 ```bash
-git clone https://github.com/<your-username>/linkup.git
-cd linkup
+git clone https://github.com/samixrd/LINKUP.git
+cd LINKUP
 ```
 
 ### 3. Install Dependencies
@@ -155,43 +155,62 @@ npm install
 ```
 *(If prompted by npm about native build tools like `better-sqlite3`, run: `npm install-scripts approve better-sqlite3 esbuild`)*
 
-### 4. Configure Environment Variables (Optional)
+### 4. Configure Environment Variables (Zero-Config Default)
 Copy `.env.example` to `.env` in the root folder:
 ```bash
 cp .env.example .env
 ```
-Default values work out of the box with the **Safe Local Stub Fallback**. If you have Hello Minds or Groq API keys:
+> **Note for Judges:** LINKUP works **100% locally out of the box** without needing any third-party API keys, thanks to our deterministic AI Mind Stub adapter. If you want to connect live LLMs:
 ```env
-PORT=3000
+PORT=3001
 NODE_ENV=development
 DATABASE_PATH=packages/db/data/linkup.db
 
-# (Optional) Hello Minds Builder Credentials
+# (Optional) Hello Minds Cloud Provider
 MINDS_BUILDER_API_KEY=your_builder_api_key_here
 MINDS_MIND_ID=your_mind_id_here
+MINDS_REPLY_TIMEOUT_MS=120000
 
-# (Optional) Groq Fast Fallback
+# (Optional) Groq Fast Fallback Provider
 GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=openai/gpt-oss-120b
 ```
 
-### 5. Seed Demo Creators & Open Collab Cards
-To explore the platform with pre-populated creators across different niches (Tech, Gaming, Music, Fashion):
+### 5. Build Project Packages
 ```bash
-npx tsx scripts/seed-demo-creators.ts
+npm run build
 ```
 
 ### 6. Start Development Servers
-Run the database builder, Express API, and Vite web server concurrently with a single command:
+Run the database builder, Express API (`http://localhost:3001`), and Vite web server (`http://localhost:5173`) concurrently:
 ```bash
 npm run dev
 ```
 
 ### 7. Access the Applications
 Open your browser to:
-- **Creator Dashboard & Own-Mind Chat**: [http://localhost:5173/mind](http://localhost:5173/mind)
-- **Brand Ads Portal**: [http://localhost:5173/brand](http://localhost:5173/brand)
-- **Creator Onboarding / Login**: [http://localhost:5173/](http://localhost:5173/)
-- **Backend API Health Check**: [http://localhost:3000/api/health](http://localhost:3000/api/health)
+- 📱 **Creator App & Onboarding / Login**: [http://localhost:5173/](http://localhost:5173/)
+- 🧠 **Creator Dashboard & Own-Mind Chat**: [http://localhost:5173/mind](http://localhost:5173/mind)
+- 🏢 **Brand Ads Portal (with 5-Question Mind Setup & Collab Lock)**: [http://localhost:5173/brand](http://localhost:5173/brand)
+- 🩺 **Backend API Health Check**: [http://localhost:3001/api/health](http://localhost:3001/api/health)
+
+---
+
+## 🚀 Deployment Notes (Render & Vercel)
+
+### Render (Backend Web Service)
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start` (or `node apps/api/dist/index.js`)
+- **Environment Variables**:
+  - `NODE_ENV=production`
+  - `PORT=10000` (Render assigns PORT automatically)
+  - `DATABASE_PATH=packages/db/data/linkup.db`
+
+### Vercel (Frontend Single Page App)
+- **Root Directory**: `apps/web` (or root with output directory `apps/web/dist`)
+- **Build Command**: `npm run build -w @linkup/web`
+- **Output Directory**: `apps/web/dist`
+- **Environment Variable**: `VITE_API_BASE=https://your-api.onrender.com`
 
 ---
 

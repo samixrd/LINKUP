@@ -13,7 +13,7 @@ import {
   BRAND_INTERVIEW_QUESTIONS,
   applyInterviewAnswer,
 } from '../../services/mind_interview.js'
-import { isNonEmptyString, isNonEmptyStringArray } from './shared.js'
+import { isNonEmptyString } from './shared.js'
 
 /**
  * HTTP routes for structured profile details (stored in profile_details side
@@ -104,7 +104,7 @@ export function registerCreatorDetailsRoutes(
     const firstUnanswered = questionBank.find((q) => {
       const details = getProfileDetails(db, creatorId)
       if (details === undefined) return true
-      const val = (details as Record<string, unknown>)[q.field]
+      const val = (details as unknown as Record<string, unknown>)[q.field]
       if (val === null || val === undefined) return true
       if (Array.isArray(val)) return val.length === 0
       if (typeof val === 'string') return val.trim() === ''
