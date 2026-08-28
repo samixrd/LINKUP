@@ -274,8 +274,26 @@ export async function runNegotiation(
         message = (await adapter.query(userContext, prompt)).trim()
       } catch {
         // Deterministic autonomous Mind fallback when AI keys are not injected:
-        // Analyzes partner terms and synthesizes a high-fit creative proposal
-        if (round === 1) {
+        // Analyzes partner terms and synthesizes a high-fit proposal. A brand
+        // side speaks as a sponsor, not as a creator.
+        const isBrandSide = userContext.creator.creatorId.startsWith('brand_')
+        if (isBrandSide) {
+          const brandName = userContext.creator.displayName
+          const brandFormat = userContext.details?.contentFormat?.[0] || 'sponsored'
+          const brandPlatform =
+            userContext.details?.preferredPlatforms?.[0] ||
+            userContext.details?.platforms?.[0] ||
+            'your platform'
+          const brandBudget = userContext.details?.minBudget || 'our standard rate'
+          const brandGuardrails = userContext.details?.dealbreakers || 'standard brand safety'
+          if (round === 1) {
+            message = `Hey ${user.otherName}! ${brandName} would love to run a ${brandFormat} sponsorship on ${brandPlatform}. We're offering ${brandBudget}, and our guardrails are: ${brandGuardrails}. Could we talk terms?`
+          } else if (round === 3) {
+            message = `Sounds good ${user.otherName}! I'm happy with the deliverables and schedule. Final plan: ${brandFormat} on ${brandPlatform} at ${brandBudget}, keeping to our guardrails: ${brandGuardrails}.`
+          } else {
+            message = `I propose we lock in the ${brandFormat} deliverable on ${brandPlatform} with a clear timeline and the agreed ${brandBudget} rate. Does that work?`
+          }
+        } else if (round === 1) {
           message = `Hey ${user.otherName}! Let's create a joint ${userContext.details?.niches[0] || 'creative'} video cross-promoted on ${userContext.details?.platforms[0] || 'YouTube'}. We can split production and do a 50/50 revenue share with bilingual subtitles.`
         } else if (round === 3) {
           message = `Sounds great ${user.otherName}! I agree with the deliverable schedule and 4K quality requirements. Let's finalize the blueprint!`

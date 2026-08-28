@@ -22,6 +22,17 @@ describe('BrandPage E2E', () => {
   })
 
   it('renders header with LINKUP* logo image and brand campaign specs', async () => {
+    const mockAccount = {
+      handle: 'brand_partner',
+      brandId: 'brand_brand_partner',
+      brandName: 'Brand Partner',
+      industry: 'Tech & AI',
+      targetPlatform: 'Instagram',
+      collabFormat: 'Dedicated 60s Reel / TikTok',
+      budgetTier: '$300 - $1,000 (Mid-tier Growth)',
+      guardrails: 'Family-friendly content only',
+      createdAt: '2026-08-28T00:00:00.000Z',
+    }
     const mockCreators = [
       {
         creatorId: 'u_nusrat_vlogs',
@@ -42,6 +53,13 @@ describe('BrandPage E2E', () => {
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : input.toString()
+        if (url.includes('/api/brands/me')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ account: mockAccount }),
+          } as Response
+        }
         if (url.includes('/api/open-collabs/brands/creators')) {
           return {
             ok: true,
@@ -57,6 +75,9 @@ describe('BrandPage E2E', () => {
     await act(async () => {
       root.render(<BrandPage />)
     })
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50))
+    })
 
     // 1. Verify header logo image
     const logoImg = container!.querySelector('img.site-logo-img') as HTMLImageElement
@@ -64,11 +85,12 @@ describe('BrandPage E2E', () => {
     expect(logoImg.src).toContain('/linkup-logo.jpg')
     expect(logoImg.alt).toBe('LINKUP*')
 
-    // 2. Verify specs banner and default Brand Mind
+    // 2. Verify portal header and Brand Mind summary from the session account
     expect(container!.textContent).toContain('Find High-Performing Creators for Paid Ads')
     expect(container!.textContent).toContain('Campaign Specs')
-    expect(container!.textContent).toContain('🏷️ Mind: Brand Partner')
-    expect(container!.textContent).toContain('brand_brand_partner')
+    expect(container!.textContent).toContain('Your Brand Mind')
+    expect(container!.textContent).toContain('Tech & AI')
+    expect(container!.textContent).toContain('@brand_partner')
 
     // 3. Verify creator feed renders with min ad rate
     await act(async () => {
@@ -99,11 +121,29 @@ describe('BrandPage E2E', () => {
 
     let negotiatedBody: Record<string, unknown> | null = null
     const queryParamsHistory: string[] = []
+    const mockAccount = {
+      handle: 'notion',
+      brandId: 'brand_notion',
+      brandName: 'Notion',
+      industry: 'Tech & AI',
+      targetPlatform: 'Instagram',
+      collabFormat: 'Dedicated 60s Reel / TikTok',
+      budgetTier: '$300 - $1,000 (Mid-tier Growth)',
+      guardrails: 'Family-friendly content only',
+      createdAt: '2026-08-28T00:00:00.000Z',
+    }
 
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input.toString()
+        if (url.includes('/api/brands/me')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ account: mockAccount }),
+          } as Response
+        }
         if (url.includes('/api/open-collabs/brands/creators')) {
           queryParamsHistory.push(url)
           return {
@@ -152,24 +192,17 @@ describe('BrandPage E2E', () => {
       await new Promise((r) => setTimeout(r, 50))
     })
 
-    // 1. Configure Brand Identity
-    const brandInput = container!.querySelector('input[placeholder*="OpenAI"]') as HTMLInputElement
-    expect(brandInput).not.toBeNull()
-
-    const inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-    const textareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
-
     await act(async () => {
-      inputSetter?.call(brandInput, 'Notion')
-      brandInput.dispatchEvent(new Event('input', { bubbles: true }))
-      brandInput.dispatchEvent(new Event('change', { bubbles: true }))
+      await new Promise((r) => setTimeout(r, 50))
     })
 
-    expect(localStorage.getItem('linkup.brandName')).toBe('Notion')
-    expect(localStorage.getItem('linkup.brandId')).toBe('brand_notion')
-    expect(container!.textContent).toContain('🏷️ Mind: Notion')
+    // 1. Verify the brand portal loaded from session (not onboarding)
+    expect(container!.textContent).toContain('Notion')
+    expect(container!.textContent).toContain('Your Brand Mind')
 
     // 2. Set Campaign Angle & Brief
+    const inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    const textareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
     const titleInput = container!.querySelector('input[placeholder*="Summer AI Tool Launch"]') as HTMLInputElement
     const briefTextarea = container!.querySelector('textarea[placeholder*="Key message"]') as HTMLTextAreaElement
 
@@ -194,7 +227,7 @@ describe('BrandPage E2E', () => {
     })
 
     // 4. Verify Modal content & pre-populated values
-    expect(container!.textContent).toContain('Pitch to u_nusrat_vlogs')
+    expect(container!.textContent).toContain('Pitch to nusrat_vlogs')
     expect(container!.textContent).toContain('Dedicated 60s Reel / TikTok')
 
     const offerPriceInput = container!.querySelector('.escrow-modal input[type="number"]') as HTMLInputElement
@@ -218,12 +251,12 @@ describe('BrandPage E2E', () => {
     })
 
     // 7. Verify Payload sent to backend
-    expect(negotiatedBody).not.toBeNull()
-    expect(negotiatedBody?.creatorId).toBe('brand_notion')
-    expect(negotiatedBody?.brandName).toBe('Notion')
-    expect(negotiatedBody?.targetId).toBe('u_nusrat_vlogs')
-    expect(String(negotiatedBody?.proposal)).toContain('1000')
-    expect(String(negotiatedBody?.proposal)).toContain('Notion AI Launch')
+    const sentBody = (negotiatedBody ?? {}) as Record<string, unknown>
+    expect(sentBody.creatorId).toBe('brand_notion')
+    expect(sentBody.brandName).toBe('Notion')
+    expect(sentBody.targetId).toBe('u_nusrat_vlogs')
+    expect(String(sentBody.proposal)).toContain('1000')
+    expect(String(sentBody.proposal)).toContain('Notion AI Launch')
 
     // 8. Live deal room opens automatically
     await act(async () => {
@@ -231,6 +264,6 @@ describe('BrandPage E2E', () => {
     })
 
     expect(container!.textContent).toContain('Autonomous Negotiation')
-    expect(container!.textContent).toContain('Your Mind × Nusrat Jahan')
+    expect(container!.textContent).toContain('Your Mind × nusrat_vlogs')
   })
 })

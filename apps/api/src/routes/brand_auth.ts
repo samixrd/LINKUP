@@ -150,7 +150,7 @@ export function createBrandAuthRouter(db: Database.Database): Router {
     for (const creator of creators.slice(0, 20)) {
       try {
         const offerMsg = customMessage ||
-          `[BRAND BULK OFFER] ${account.brandName} wants to sponsor a ${account.collabFormat}. Budget: ${account.budgetTier}. Guardrails: ${account.guardrails}`
+          `[BRAND BULK OFFER] ${account.brandName} — a ${account.industry} brand — wants to sponsor a ${account.collabFormat} on ${account.targetPlatform}. Budget: ${account.budgetTier}. Mandatory guardrails: ${account.guardrails}`
 
         createCollaboration(db, {
           id: `bulk_${session.brandId}_${creator.creatorId}_${Date.now()}`,

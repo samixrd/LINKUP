@@ -23,10 +23,11 @@ describe('database foundation', () => {
       '0015_creator_depth.sql',
       '0016_linkup_spec_upgrade.sql',
       '0017_brand_portal.sql',
+      '0018_brand_accounts.sql',
     ])
 
     const rows = db.prepare('SELECT version FROM schema_migrations').all()
-    expect(rows).toHaveLength(17)
+    expect(rows).toHaveLength(18)
     db.close()
   })
 

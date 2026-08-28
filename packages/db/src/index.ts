@@ -163,6 +163,8 @@ export {
   logoutBrandSession,
   getBrandAccount,
   updateBrandMind,
+  seedBrandMindProfile,
+  BRAND_MEMORY_PREFIXES,
   BRAND_SESSION_TTL_MS,
 } from './brand_auth.js'
-export type { BrandAccount, BrandSession, RegisterBrandInput } from './brand_auth.js'
+export type { BrandAccount, BrandSession, RegisterBrandInput, BrandMindSeedInput } from './brand_auth.js'

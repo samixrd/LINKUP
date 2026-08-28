@@ -100,7 +100,7 @@ export default function BrandPage() {
       : Number(budgetPerCreator) > 0 ? Number(budgetPerCreator) : 250
     setOfferPrice(String(suggestedPrice))
     const titleSnippet = campaignTitle.trim() ? ` for "${campaignTitle.trim()}"` : ''
-    setOfferText(`Hey! We'd love to sponsor a ${contentType}${titleSnippet} for ${account.brandName}. Budget: ${account.budgetTier}. Guardrails: ${account.guardrails}. Let's collaborate!`)
+    setOfferText(`Hey! We're ${account.brandName}, a ${account.industry} brand. We'd love to sponsor a ${contentType}${titleSnippet} on ${account.targetPlatform}. Budget: ${account.budgetTier}. Hard guardrails: ${account.guardrails}. Let's collaborate!`)
     setProposalStatus(null)
   }
 

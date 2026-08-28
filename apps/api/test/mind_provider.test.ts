@@ -15,16 +15,24 @@ import {
   createCreatorProfile,
   createDatabase,
   createFollowUp,
+  getProfileDetails,
+  listCreatorMemories,
   migrate,
+  registerBrandAccount,
   stubMindAdapter,
   type MindAdapter,
 } from '@linkup/db'
 import { createApp } from '../src/app.js'
 import {
   aliasForCreator,
+  brandBudgetStance,
+  brandPersonalityTone,
+  buildBrandSystemPrompt,
   buildGroqSystemPrompt,
   buildMindPrompt,
+  createAutonomousMindAdapter,
   createMindsProviderAdapter,
+  isBrand,
   resolveMindAdapter,
   stripMarkdown,
   withGroqFallback,
@@ -471,6 +479,109 @@ describe('adapter resolution', () => {
     expect(prompt).toContain('Prefers async collaboration.')
     expect(prompt).not.toContain('Secret other memory.')
     expect(prompt).toContain('Loves pottery')
+    db.close()
+  })
+})
+
+describe('brand unique mind (setup selections → brand personality)', () => {
+  function seedBrandDb(): ReturnType<typeof createDatabase> {
+    const db = createDatabase(':memory:')
+    migrate(db)
+    registerBrandAccount(db, {
+      handle: 'fintechx',
+      pin: '1234',
+      brandName: 'FintechX',
+      industry: 'Finance & Fintech',
+      targetPlatform: 'TikTok',
+      collabFormat: 'UGC Ad Creative Asset',
+      budgetTier: '$1,000 - $5,000 (Macro Reach)',
+      guardrails: 'Clear FTC disclosure. No crypto or gambling content. Pre-approve all scripts.',
+    })
+    return db
+  }
+
+  it('registerBrandAccount seeds the brand Mind from the 5 setup selections', () => {
+    const db = seedBrandDb()
+    const brandId = 'brand_fintechx'
+    const details = getProfileDetails(db, brandId)
+    expect(details).toBeDefined()
+    expect(details?.niches).toEqual(['Finance & Fintech'])
+    expect(details?.preferredPlatforms).toEqual(['TikTok'])
+    expect(details?.contentFormat).toEqual(['UGC Ad Creative Asset'])
+    expect(details?.minBudget).toBe('$1,000 - $5,000 (Macro Reach)')
+    expect(details?.dealbreakers).toContain('FTC disclosure')
+    const memories = listCreatorMemories(db, { creatorId: brandId })
+    const contents = memories.map((m) => m.content)
+    expect(contents).toContain('Brand industry / category: Finance & Fintech')
+    expect(contents).toContain('Target ad platforms: TikTok')
+    expect(contents).toContain('Preferred ad deliverables: UGC Ad Creative Asset')
+    expect(contents).toContain('Brand sponsor budget per creator: $1,000 - $5,000 (Macro Reach)')
+    expect(contents).toContain('Brand safety guardrails and dealbreakers: Clear FTC disclosure. No crypto or gambling content. Pre-approve all scripts.')
+    db.close()
+  })
+
+  it('isBrand detects brand contexts but not creator contexts', () => {
+    const db = seedBrandDb()
+    const creatorDb = createDatabase(':memory:')
+    migrate(creatorDb)
+    createCreatorProfile(creatorDb, { creatorId: 'prov_a', displayName: 'Ada', bio: 'hi' })
+    expect(isBrand(buildMindContext(db, 'brand_fintechx'))).toBe(true)
+    expect(isBrand(buildMindContext(creatorDb, 'prov_a'))).toBe(false)
+    db.close()
+    creatorDb.close()
+  })
+
+  it('buildBrandSystemPrompt speaks as the sponsor with the brand selections', () => {
+    const db = seedBrandDb()
+    const context = buildMindContext(db, 'brand_fintechx')
+    const prompt = buildBrandSystemPrompt(context)
+    expect(prompt).toContain('AI Brand Mind for FintechX')
+    expect(prompt).toContain('Finance & Fintech')
+    expect(prompt).toContain('TikTok')
+    expect(prompt).toContain('UGC Ad Creative Asset')
+    expect(prompt).toContain('$1,000 - $5,000 (Macro Reach)')
+    expect(prompt).toContain('Clear FTC disclosure')
+    expect(prompt).toContain('Reject or walk away')
+    expect(prompt).toMatch(/compliance-first/i)
+    expect(prompt).toMatch(/Do NOT use markdown/i)
+    expect(prompt).not.toContain('You are NOT a brand')
+    db.close()
+  })
+
+  it('brand personality tone varies by industry selection', () => {
+    expect(brandPersonalityTone('Finance & Fintech')).toMatch(/compliance-first/i)
+    expect(brandPersonalityTone('Gaming & Esports')).toMatch(/community-first/i)
+    expect(brandPersonalityTone('Fashion & Beauty')).toMatch(/trend-forward/i)
+    expect(brandPersonalityTone('Unknown Industry')).toMatch(/professional/i)
+  })
+
+  it('brand budget stance varies by budget-tier selection', () => {
+    expect(brandBudgetStance('$100 - $300 (Nano/Micro Tier)')).toMatch(/emerging creators/i)
+    expect(brandBudgetStance('$1,000 - $5,000 (Macro Reach)')).toMatch(/production value/i)
+    expect(brandBudgetStance('$5,000+ (Premium Flagship)')).toMatch(/top-tier/i)
+  })
+
+  it('buildMindPrompt first message for a brand is brand-flavored', () => {
+    const db = seedBrandDb()
+    const context = buildMindContext(db, 'brand_fintechx')
+    const prompt = buildMindPrompt(context, 'Should I negotiate with them?', true)
+    expect(prompt).toContain('a brand on LINKUP')
+    expect(prompt).toContain('Finance & Fintech')
+    expect(prompt).toContain('non-negotiable')
+    expect(prompt).toContain('FTC disclosure')
+    db.close()
+  })
+
+  it('autonomous adapter answers a brand as the sponsor, not a creator', async () => {
+    const db = seedBrandDb()
+    const adapter = createAutonomousMindAdapter()
+    const context = buildMindContext(db, 'brand_fintechx')
+    const guardrailsReply = await adapter.query(context, 'Tell me about your guardrails')
+    expect(guardrailsReply).toContain('FTC disclosure')
+    expect(guardrailsReply).not.toContain('Creative Media channel')
+    const introReply = await adapter.query(context, 'Who are you?')
+    expect(introReply).toContain('AI Brand Mind for FintechX')
+    expect(introReply).toContain('TikTok')
     db.close()
   })
 })

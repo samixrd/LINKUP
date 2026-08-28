@@ -1,5 +1,10 @@
-﻿import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+﻿import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
 import type Database from 'better-sqlite3'
+import { addCreatorMemory, deleteCreatorMemory, listCreatorMemories } from './memories.js'
+import type { MemoryCategory } from './memories.js'
+import { createCreatorProfile, getCreatorProfile, updateCreatorProfile } from './profiles.js'
+import { setProfileDetails } from './profile_details.js'
+import type { ProfileDetailsUpdates } from './profile_details.js'
 
 export const BRAND_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -116,6 +121,77 @@ function createBrandSession(
   return { token, handle, brandId, brandName, expiresAt }
 }
 
+/**
+ * The onboarding memory templates written for a brand's unique Mind. Each
+ * mirrors one of the 5 setup questions (industry, platform, format, budget,
+ * guardrails). Matching on these prefixes lets updates replace old seeds
+ * instead of stacking duplicates.
+ */
+export const BRAND_MEMORY_PREFIXES = [
+  'Brand industry / category:',
+  'Target ad platforms:',
+  'Preferred ad deliverables:',
+  'Brand sponsor budget per creator:',
+  'Brand safety guardrails and dealbreakers:',
+] as const
+
+export interface BrandMindSeedInput {
+  brandId: string
+  brandName: string
+  industry: string
+  targetPlatform: string
+  collabFormat: string
+  budgetTier: string
+  guardrails: string
+}
+
+/**
+ * Seeds a brand's UNIQUE Mind from its setup selections. Writes the 5
+ * answers into the brand's structured profile details (so match cards,
+ * proposals and the Mind provider all read them) AND into onboarding
+ * memories (so the Mind's chat context and prompt builder see them). This is
+ * what makes every brand's Mind its own — a Finance brand Mind, a Gaming
+ * brand Mind, etc. — instead of one generic template.
+ */
+export function seedBrandMindProfile(db: Database.Database, input: BrandMindSeedInput): void {
+  const { brandId, industry, targetPlatform, collabFormat, budgetTier, guardrails } = input
+
+  // Replace any previously seeded onboarding memories (idempotent re-seed).
+  const existing = listCreatorMemories(db, { creatorId: brandId })
+  for (const mem of existing) {
+    if (BRAND_MEMORY_PREFIXES.some((p) => mem.content.startsWith(p))) {
+      deleteCreatorMemory(db, mem.id)
+    }
+  }
+
+  // 1) Structured profile details — the Mind, matching and proposals read these.
+  const updates: ProfileDetailsUpdates = {
+    niches: [industry],
+    preferredPlatforms: [targetPlatform],
+    contentFormat: [collabFormat],
+    minBudget: budgetTier,
+    dealbreakers: guardrails,
+  }
+  setProfileDetails(db, brandId, updates)
+
+  // 2) Onboarding memories — the Mind's chat context and prompt builder see these.
+  const memories: Array<{ category: MemoryCategory; content: string }> = [
+    { category: 'preference', content: `Brand industry / category: ${industry}` },
+    { category: 'preference', content: `Target ad platforms: ${targetPlatform}` },
+    { category: 'goal', content: `Preferred ad deliverables: ${collabFormat}` },
+    { category: 'constraint', content: `Brand sponsor budget per creator: ${budgetTier}` },
+    { category: 'constraint', content: `Brand safety guardrails and dealbreakers: ${guardrails}` },
+  ]
+  for (const m of memories) {
+    addCreatorMemory(db, {
+      id: randomUUID(),
+      creatorId: brandId,
+      category: m.category,
+      content: m.content,
+    })
+  }
+}
+
 export function registerBrandAccount(
   db: Database.Database,
   input: RegisterBrandInput,
@@ -141,15 +217,33 @@ export function registerBrandAccount(
     input.industry, input.targetPlatform, input.collabFormat, input.budgetTier, input.guardrails,
   )
 
-  // Seed a minimal creator profile row so brand can appear in open_collabs negotiations
+  // Seed a creator profile row so the brand can appear in open_collabs
+  // negotiations, then seed its UNIQUE Mind from the 5 setup selections.
   try {
-    const bio = `Brand Mind: ${input.industry} | ${input.targetPlatform} | ${input.budgetTier}`
-    db.prepare(`
-      INSERT OR IGNORE INTO creators (creator_id, display_name, bio, created_at, updated_at)
-      VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    `).run(brandId, input.brandName.trim(), bio)
-  } catch {
-    // Silently skip if schema differs
+    const bio = [
+      `Official Brand Mind of ${input.brandName.trim()}`,
+      `— a ${input.industry} brand running ${input.collabFormat} sponsorships on ${input.targetPlatform}.`,
+      `Budget: ${input.budgetTier}. Guardrails: ${input.guardrails}`,
+    ].join('')
+    if (getCreatorProfile(db, brandId) === undefined) {
+      createCreatorProfile(db, { creatorId: brandId, displayName: input.brandName.trim(), bio })
+    } else {
+      updateCreatorProfile(db, brandId, { bio })
+    }
+    // Seed the brand's structured profile details + onboarding memories
+    seedBrandMindProfile(db, {
+      brandId,
+      brandName: input.brandName.trim(),
+      industry: input.industry,
+      targetPlatform: input.targetPlatform,
+      collabFormat: input.collabFormat,
+      budgetTier: input.budgetTier,
+      guardrails: input.guardrails,
+    })
+  } catch (err) {
+    // The brand can still register even if Mind seeding fails — log it so it
+    // never fails silently.
+    console.error('[brand_auth] failed to seed brand mind:', err instanceof Error ? err.message : err)
   }
 
   const row = db.prepare('SELECT * FROM brand_accounts WHERE handle = ?').get(handle) as BrandAccountRow
@@ -229,5 +323,19 @@ export function updateBrandMind(
     db.prepare(
       `UPDATE brand_accounts SET ${col} = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE handle = ?`,
     ).run(val.trim(), normalized)
+  }
+  // Re-sync the brand's Mind profile so the change is reflected in its
+  // personality, memories and negotiation context immediately.
+  const row = db.prepare('SELECT * FROM brand_accounts WHERE handle = ?').get(normalized) as BrandAccountRow | undefined
+  if (row) {
+    seedBrandMindProfile(db, {
+      brandId: row.brand_id,
+      brandName: row.brand_name,
+      industry: row.industry,
+      targetPlatform: row.target_platform,
+      collabFormat: row.collab_format,
+      budgetTier: row.budget_tier,
+      guardrails: row.guardrails,
+    })
   }
 }

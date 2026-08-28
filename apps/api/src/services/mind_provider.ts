@@ -76,7 +76,10 @@ export function createMindsProviderAdapter(options: MindsProviderOptions): MindA
 export function createGroqFallbackAdapter(groq: GroqConfig): MindAdapter {
   return {
     async query(context: MindContext, input: string): Promise<string> {
-      const system = buildGroqSystemPrompt(context)
+      // A brand gets its own personality prompt from its setup selections.
+      const system = isBrand(context)
+        ? buildBrandSystemPrompt(context)
+        : buildGroqSystemPrompt(context)
       const previousMessages = (context.recentInteractions ?? []).slice(-6).map((i) => ({
         role: i.role === 'user' ? ('user' as const) : ('assistant' as const),
         content: i.content,
@@ -175,6 +178,103 @@ export function buildGroqSystemPrompt(context: MindContext): string {
   return lines.join('\n')
 }
 
+/** True when the Mind context belongs to a Brand (not a creator). */
+export function isBrand(context: MindContext): boolean {
+  return context.creator.creatorId.startsWith('brand_')
+}
+
+/** Maps a brand's industry selection to a distinct brand personality voice. */
+export function brandPersonalityTone(industry: string): string {
+  const map: Record<string, string> = {
+    'Tech & AI': 'sharp, innovation-driven and future-forward. You talk product edge, velocity and what the tech actually unlocks.',
+    'Gaming & Esports': 'high-energy, playful and community-first. You talk drops, streams, hype and the players who drive culture.',
+    'Fashion & Beauty': 'trend-forward, aesthetic and aspirational. You talk style, fit, visuals and who the look is for.',
+    'Food & Beverage': 'warm, appetizing and lifestyle-driven. You talk taste, moments and the craving that sells the product.',
+    'Fitness & Health': 'motivating, energetic and science-backed. You talk results, discipline and sustainable habits.',
+    'Finance & Fintech': 'crisp, compliance-first and ROI-focused. You lead with numbers, risk and trust — never hype.',
+    'Music & Entertainment': 'creative, culture-driven and hype-aware. You talk vibes, drops and the audience that moves the needle.',
+    'Education & EdTech': 'clear, encouraging and value-focused. You talk outcomes, learning and measurable impact.',
+    'Travel & Lifestyle': 'aspirational, relaxed and wanderlust-driven. You talk escapes, experiences and the feeling of the place.',
+    'E-commerce & D2C': 'conversion-focused, practical and deal-oriented. You talk offers, clicks and return on spend.',
+    'SaaS & Productivity': 'professional, ROI-driven and efficient. You talk workflows, time saved and adoption.',
+  }
+  return map[industry] ?? 'warm, professional and direct — you know exactly what the brand needs and say it plainly.'
+}
+
+/** Maps a brand's budget-tier selection to its negotiation stance. */
+export function brandBudgetStance(budgetTier: string): string {
+  const tier = budgetTier.toLowerCase()
+  if (/100.*300|nano|micro/i.test(tier)) {
+    return 'Budget-conscious but flexible — you welcome emerging creators and value authentic micro-influencer reach over celebrity names.'
+  }
+  if (/1,000.*5,000|macro|established/i.test(tier)) {
+    return 'Confident and quality-driven — you pay well and expect professional production value and strong audience alignment.'
+  }
+  if (/5,000|premium|flagship/i.test(tier)) {
+    return 'Premium and selective — you run flagship campaigns with top-tier creators and demand polished, on-brand deliverables.'
+  }
+  return 'Balanced and results-driven — you run standard growth deals, weighing reach, fit and production value against a disciplined budget.'
+}
+
+/** Normalizes a possibly-array profile field down to a single string. */
+function firstValue(value: string | string[] | null | undefined): string {
+  if (value === null || value === undefined) return ''
+  if (Array.isArray(value)) return value[0] ?? ''
+  return value
+}
+
+/**
+ * Builds the system prompt for a BRAND's unique Mind (used by the Groq
+ * fallback adapter). Unlike a creator's Mind, the brand Mind is the
+ * sponsor's side of the table: it represents the brand's commercial
+ * interests, pushes its chosen deliverable/platform/budget, and treats its
+ * setup-selected guardrails as absolute deal-breakers. The voice varies by
+ * the industry the brand picked at setup.
+ */
+export function buildBrandSystemPrompt(context: MindContext): string {
+  const profile = context.creator
+  const d = context.details
+  const brandName = profile.displayName
+
+  const industry = firstValue(d?.niches?.[0]) || 'your brand'
+  const platform = firstValue(d?.preferredPlatforms?.[0]) || d?.platforms?.[0] || 'your target platform'
+  const format = firstValue(d?.contentFormat?.[0]) || 'your campaign deliverable'
+  const budget = firstValue(d?.minBudget) || 'your budget tier'
+  const guardrails = firstValue(d?.dealbreakers) || 'your brand guardrails'
+
+  const lines: string[] = []
+  lines.push(`You are the AI Brand Mind for ${brandName} on LINKUP, an autonomous creator-brand sponsorship network.`)
+  lines.push(`You are NOT a creator and NOT a generic assistant. You are ${brandName}'s sponsorship brain — you run paid creator campaigns and negotiate deals with creator Minds autonomously.`)
+  lines.push(`Never role-play as a creator or another brand. You are the sponsor's side of the table. Speak as "${brandName}'s Mind".`)
+
+  lines.push(`\n[BRAND PROFILE]`)
+  lines.push(`• Brand: ${brandName}`)
+  lines.push(`• Industry: ${industry}`)
+  lines.push(`• Target platform: ${platform}`)
+  lines.push(`• Ad deliverable: ${format}`)
+  lines.push(`• Budget tier per creator: ${budget}`)
+  lines.push(`• Mandatory guardrails (ABSOLUTE): ${guardrails}`)
+
+  lines.push(`\n[BRAND PERSONALITY]`)
+  lines.push(`Embody this voice: ${brandPersonalityTone(industry)}`)
+  lines.push(`Negotiation stance: ${brandBudgetStance(budget)}`)
+
+  lines.push(`\n[NEGOTIATION RULES]`)
+  lines.push(`- Steer every deal toward a ${format} deliverable on ${platform}.`)
+  lines.push(`- Stay within the ${budget} budget tier per creator — push for value, but never blow the tier without flagging it.`)
+  lines.push(`- These guardrails are non-negotiable: ${guardrails}. Reject or walk away from any deal that violates them.`)
+  lines.push(`- Speak like a sharp, trustworthy sponsorship manager: short conversational paragraphs, first-person, direct.`)
+
+  lines.push(`\n[RESPONSE RULES]`)
+  lines.push(
+    'Do NOT use markdown or formatting of any kind — no tables, no headers, no bold/italics, ' +
+      'no bullet or numbered lists, no "---" dividers, no section titles, no emoji-heavy decoration. ' +
+      'Plain prose only. ' +
+      `Keep your tone unmistakably customized to ${brandName} and its ${industry} positioning.`,
+  )
+  return lines.join('\n')
+}
+
 /** Calls Groq chat completions with a bounded timeout and no secret leaking. */
 export async function groqChatCompletions(
   groq: GroqConfig,
@@ -268,9 +368,46 @@ export function withGroqFallback(primary: MindAdapter, fallback: MindAdapter): M
   }
 }
 
+/**
+ * Deterministic replies for a BRAND's autonomous Mind (last-resort fallback
+ * when no AI keys are present). Speaks as the sponsor's side, using the
+ * brand's setup selections: deliverable, platform, budget tier, guardrails.
+ */
+function brandAutonomousReply(context: MindContext, input: string): string {
+  const brandName = context.creator.displayName
+  const d = context.details
+  const industry = d?.niches?.[0] || 'our industry'
+  const platform = d?.preferredPlatforms?.[0] || d?.platforms?.[0] || 'our target platform'
+  const format = d?.contentFormat?.[0] || 'the campaign deliverable'
+  const budget = d?.minBudget || 'our budget tier'
+  const guardrails = d?.dealbreakers || 'our brand guardrails'
+  const q = input.toLowerCase()
+
+  if (/negotiat|initiate|collab with|deal with|start with|reach out|propose|^y(es)?$|^ok|^sure|^yeah/i.test(q)) {
+    return `I'll open the negotiation now — pushing a ${format} deliverable on ${platform}, holding our ${budget} line, and enforcing our guardrails: ${guardrails}. If they counter outside those rules, I walk.`
+  }
+  if (/guardrail|rule|dealbreaker|avoid|safe|compliance/i.test(q)) {
+    return `Our guardrails are non-negotiable: ${guardrails}. I will automatically reject any deal that touches them, no matter how strong the offer looks.`
+  }
+  if (/budget|price|rate|cost|pay|how much/i.test(q)) {
+    return `Our budget tier per creator is ${budget}. I negotiate hard within that range — value and audience fit first, and I never exceed the tier without the brand's sign-off.`
+  }
+  if (/format|deliverable|reel|video|story|ugc|content/i.test(q)) {
+    return `We're looking for ${format} on ${platform}. I steer every deal toward that deliverable so the campaign stays consistent and on-brand.`
+  }
+  if (/who are you|about you|yourself|introduce/i.test(q)) {
+    return `I'm the AI Brand Mind for ${brandName} on LINKUP. I run ${format} sponsorships on ${platform} for our ${industry} brand, negotiate within our ${budget} tier, and never sign a deal that breaks our guardrails: ${guardrails}.`
+  }
+  return `I'm ${brandName}'s sponsorship Mind. I find open creators, negotiate paid ${format} deals on ${platform}, and enforce our guardrails: ${guardrails}. Ask me about budget, format or guardrails anytime.`
+}
+
 export function createAutonomousMindAdapter(): MindAdapter {
   return {
     async query(context: MindContext, input: string): Promise<string> {
+      // Brands speak as the sponsor — never as a creator.
+      if (isBrand(context)) {
+        return brandAutonomousReply(context, input)
+      }
       const p = context.creator
       const d = context.details
       const q = input.toLowerCase().trim()
@@ -465,6 +602,32 @@ export function buildMindPrompt(context: MindContext, input: string, firstMessag
     const opener = openers[Math.floor(Math.random() * openers.length)]!
 
     const lines: string[] = [opener, '']
+
+    // Brand context — the Minds provider hears who the brand is, what it
+    // wants (deliverable/platform/budget) and its absolute guardrails, so
+    // even the real Minds thread is unique per brand.
+    if (isBrand(context)) {
+      const d = context.details
+      lines.push(`Quick context on me — I'm the AI Mind for ${profile.displayName}, a brand on LINKUP.`)
+      if (d) {
+        const bits: string[] = []
+        if (d.niches.length > 0) bits.push(`a ${d.niches[0]} brand`)
+        if (d.preferredPlatforms.length > 0) bits.push(`running campaigns on ${d.preferredPlatforms[0]}`)
+        if (d.contentFormat.length > 0) bits.push(`seeking ${d.contentFormat[0]} deliverables`)
+        if (d.minBudget) bits.push(`a ${d.minBudget} budget tier per creator`)
+        if (bits.length > 0) lines.push(`For context: we're ${bits.join(', ')}.`)
+        if (d.dealbreakers) lines.push(`Our guardrails are non-negotiable: ${d.dealbreakers}.`)
+      }
+      const memories = context.memories
+        .filter((m) => m.category !== 'interaction')
+        .slice(-3)
+      if (memories.length > 0) {
+        lines.push(`Jotted down a few notes about the brand: ${memories.map((m) => m.content).join('; ')}.`)
+      }
+      lines.push('')
+      lines.push('What do you think?')
+      return lines.join('\n')
+    }
 
     // Profile context — natural sentences, never bullet lists.
     const contextLines: string[] = []
