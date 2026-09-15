@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchMe, logoutAccount } from './api'
+import { fetchMe, getHealth, logoutAccount } from './api'
 import type { CreatorProfile } from './api'
-import { clearStoredCreatorId, getStoredCreatorId, storeCreatorId } from './creator'
+import {
+  clearStoredCreatorId,
+  clearStoredCreatorProfile,
+  getStoredCreatorId,
+  getStoredCreatorProfile,
+  storeCreatorId,
+  storeCreatorProfile,
+} from './creator'
 import Onboarding from './components/Onboarding'
 import Shell from './components/Shell'
 import { QrSticker, SmileySticker, StarSticker } from './components/Stickers'
@@ -54,33 +61,49 @@ function HeroWordmark() {
   )
 }
 
+function getInitialView(): View {
+  if (typeof window === 'undefined') return { name: 'onboarding' }
+  const cachedProfile = getStoredCreatorProfile()
+  if (cachedProfile && cachedProfile.creatorId) {
+    return { name: 'ready', profile: cachedProfile }
+  }
+  return { name: 'onboarding' }
+}
+
 export default function App() {
-  // Session-first: the cookie decides. The old localStorage creator id is
-  // still honored as a migration path for existing users.
-  const [view, setView] = useState<View>({ name: 'loading' })
+  // Session-first: instant optimistic render so onboarding/ready appears at 0ms.
+  // The backend connection and session sync happen smoothly in the background.
+  const [view, setView] = useState<View>(getInitialView)
 
   useEffect(() => {
     if (isMindRoute() || isBrandRoute()) return
     let cancelled = false
+
+    // Warm up the backend in parallel immediately if it was idling on Render
+    void getHealth().catch(() => {})
+
     async function boot() {
       try {
         const me = await fetchMe()
-        if (!cancelled && me?.profile) {
+        if (cancelled) return
+        if (me?.profile) {
           storeCreatorId(me.creatorId)
+          storeCreatorProfile(me.profile)
           setView({ name: 'ready', profile: me.profile })
           return
         }
       } catch {
-        // fall through to legacy/localStorage check
+        // Cold start or network glitch — keep optimistic UI intact
       }
+      if (cancelled) return
+      // If server confirms no active session, clear any stale cached identity
       const legacy = getStoredCreatorId()
-      if (!cancelled) setView(legacy === null ? { name: 'onboarding' } : { name: 'loading' })
-      if (legacy !== null) {
-        // No valid session but a legacy local creator — send to onboarding's
-        // sign-in card by clearing stale identity.
+      if (legacy !== null && !getStoredCreatorProfile()) {
         clearStoredCreatorId()
       }
+      setView((prev) => (prev.name === 'onboarding' ? prev : { name: 'onboarding' }))
     }
+
     void boot()
     return () => {
       cancelled = true
@@ -97,22 +120,25 @@ export default function App() {
 
   function handleOnboarded(result: { creatorId: string; displayName: string }) {
     storeCreatorId(result.creatorId)
+    const profile: CreatorProfile = {
+      creatorId: result.creatorId,
+      displayName: result.displayName,
+      bio: '',
+      avatarUrl: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    storeCreatorProfile(profile)
     setView({
       name: 'ready',
-      profile: {
-        creatorId: result.creatorId,
-        displayName: result.displayName,
-        bio: '',
-        avatarUrl: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
+      profile,
     })
   }
 
   async function handleLogout() {
-    await logoutAccount()
+    await logoutAccount().catch(() => {})
     clearStoredCreatorId()
+    clearStoredCreatorProfile()
     setView({ name: 'onboarding' })
   }
 
